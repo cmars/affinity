@@ -7,6 +7,8 @@ import (
 	"path"
 	"strings"
 
+	"launchpad.net/gnuflag"
+
 	. "github.com/cmars/affinity"
 	"github.com/cmars/affinity/client"
 )
@@ -19,7 +21,8 @@ type groupCmd struct {
 	client  *client.Client
 }
 
-func groupFlags(cmd *groupCmd) {
+func groupFlags(h cmdHandler, cmd *groupCmd) {
+	cmd.flags = gnuflag.NewFlagSet(h.Name(), gnuflag.ExitOnError)
 	cmd.flags.StringVar(&cmd.url, "url", "", "Affinity server URL")
 	cmd.flags.StringVar(&cmd.group, "group", "", "Affinity group")
 	cmd.flags.StringVar(&cmd.homeDir, "homedir", "", "Affinity client home (default: ~/.affinity)")
@@ -50,8 +53,8 @@ type userCmd struct {
 	User User
 }
 
-func userFlags(cmd *userCmd) {
-	groupFlags(&cmd.groupCmd)
+func userFlags(h cmdHandler, cmd *userCmd) {
+	groupFlags(h, &cmd.groupCmd)
 	cmd.flags.StringVar(&cmd.user, "user", "", "Affinity user")
 }
 
@@ -73,7 +76,7 @@ type addGroupCmd struct {
 
 func newAddGroupCmd() *addGroupCmd {
 	cmd := &addGroupCmd{}
-	groupFlags(&cmd.groupCmd)
+	groupFlags(cmd, &cmd.groupCmd)
 	return cmd
 }
 
@@ -93,7 +96,7 @@ type removeGroupCmd struct {
 
 func newRemoveGroupCmd() *removeGroupCmd {
 	cmd := &removeGroupCmd{}
-	groupFlags(&cmd.groupCmd)
+	groupFlags(cmd, &cmd.groupCmd)
 	return cmd
 }
 
@@ -113,7 +116,7 @@ type showGroupCmd struct {
 
 func newShowGroupCmd() *showGroupCmd {
 	cmd := &showGroupCmd{}
-	groupFlags(&cmd.groupCmd)
+	groupFlags(cmd, &cmd.groupCmd)
 	return cmd
 }
 
@@ -140,7 +143,7 @@ type addUserCmd struct {
 
 func newAddUserCmd() *addUserCmd {
 	cmd := &addUserCmd{}
-	userFlags(&cmd.userCmd)
+	userFlags(cmd, &cmd.userCmd)
 	return cmd
 }
 
@@ -160,7 +163,7 @@ type removeUserCmd struct {
 
 func newRemoveUserCmd() *removeUserCmd {
 	cmd := &removeUserCmd{}
-	userFlags(&cmd.userCmd)
+	userFlags(cmd, &cmd.userCmd)
 	return cmd
 }
 
@@ -180,7 +183,7 @@ type checkUserCmd struct {
 
 func newCheckUserCmd() *checkUserCmd {
 	cmd := &checkUserCmd{}
-	userFlags(&cmd.userCmd)
+	userFlags(cmd, &cmd.userCmd)
 	return cmd
 }
 

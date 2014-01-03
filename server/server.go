@@ -50,7 +50,7 @@ func (s *Server) RegisterScheme(scheme Scheme) {
 }
 
 func (s *Server) Authenticate(r *http.Request) (schemeId, userId string, err error) {
-	authStr := r.Header.Get("Authentication")
+	authStr := r.Header.Get("Authorization")
 	if authStr == "" {
 		return "", "", fmt.Errorf("Request not authenticated")
 	}
@@ -58,7 +58,7 @@ func (s *Server) Authenticate(r *http.Request) (schemeId, userId string, err err
 	if err != nil {
 		return "", "", err
 	}
-	schemeId = values.Get("AffinityScheme")
+	schemeId = values.Get("Affinity-Scheme")
 	if schemeId == "" {
 		return "", "", fmt.Errorf("Scheme not specified")
 	}
@@ -76,6 +76,7 @@ func (s *Server) HandleGroup(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGroup(r *http.Request) *Response {
+	log.Println(r)
 	vars := mux.Vars(r)
 	groupId := vars["group"]
 	schemeId, userId, err := s.Authenticate(r)

@@ -57,6 +57,11 @@ func (c *loginCmd) Main() {
 		die(err)
 	}
 
+	err = os.MkdirAll(c.homeDir, 0700)
+	if err != nil {
+		die(err)
+	}
+
 	authFile := path.Join(c.homeDir, "auth")
 	f, err := os.OpenFile(authFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {

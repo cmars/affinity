@@ -41,6 +41,7 @@ func (s *UssoScheme) Auth(id string) (values url.Values, err error) {
 		"TokenKey":       []string{ssoData.TokenKey},
 		"TokenName":      []string{ssoData.TokenName},
 		"TokenSecret":    []string{ssoData.TokenSecret},
+		"Affinity-Scheme": []string{s.Name()},
 	}, nil
 }
 

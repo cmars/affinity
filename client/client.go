@@ -46,7 +46,7 @@ func (c *Client) doGroupRequest(group string, method string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	u.Path = fmt.Sprintf("/%v", group)
+	u.Path = fmt.Sprintf("/%v/", group)
 	req, err := http.NewRequest(method, u.String(), nil)
 	if err != nil {
 		return nil, err
@@ -85,7 +85,7 @@ func (c *Client) doUserRequest(group string, user User, method string) ([]byte, 
 	if err != nil {
 		return nil, err
 	}
-	u.Path = fmt.Sprintf("/%s/%s", group, user.String())
+	u.Path = fmt.Sprintf("/%s/%s/", group, user.String())
 	req, err := http.NewRequest(method, u.String(), nil)
 	if err != nil {
 		return nil, err
