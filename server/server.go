@@ -58,7 +58,7 @@ type Server struct {
 func NewServer(store Store) *Server {
 	s := &Server{mux.NewRouter(), store, make(SchemeMap)}
 	s.HandleFunc("/{group}/", s.HandleGroup)
-	s.HandleFunc("/{group}/{scheme}:{user}", s.HandleUser)
+	s.HandleFunc("/{group}/{user}/", s.HandleUser)
 	return s
 }
 
@@ -129,6 +129,7 @@ func (s *Server) handleGroup(r *http.Request) *Response {
 		out, err := json.Marshal(group)
 		resp := &Response{Error: err}
 		resp.Write(out)
+		return resp
 	case "DELETE":
 		if getErr != nil {
 			return &Response{Error: getErr}
@@ -153,15 +154,18 @@ func (s *Server) HandleUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleUser(r *http.Request) *Response {
+	log.Println(r)
 	vars := mux.Vars(r)
 	groupId := vars["group"]
-	schemeId := vars["scheme"]
-	userId := vars["user"]
-	user := User{schemeId, userId}
+	userString := vars["user"]
+	user, err := ParseUser(userString)
+	if err != nil {
+		return &Response{Error: err}
+	}
 
-	_, has := s.schemes[schemeId]
+	_, has := s.schemes[user.Scheme]
 	if !has {
-		return &Response{Error: fmt.Errorf("unsupported scheme: %s", schemeId)}
+		return &Response{Error: fmt.Errorf("unsupported scheme: %s", user.Scheme)}
 	}
 
 	authSchemeId, authUserId, err := s.Authenticate(r)
@@ -183,7 +187,7 @@ func (s *Server) handleUser(r *http.Request) *Response {
 		if !group.HasAdmin(authUser) && !group.HasMember(authUser) {
 			return &Response{
 				Error: fmt.Errorf("auth user %s:%s: not allowed to check membership of %s:%s",
-					authSchemeId, authSchemeId, schemeId, userId),
+					authSchemeId, authSchemeId, user.Scheme, user.Id),
 				StatusCode: http.StatusNotFound,
 			}
 		}

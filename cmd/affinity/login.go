@@ -19,6 +19,7 @@ package main
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path"
 
@@ -30,7 +31,7 @@ import (
 
 type loginCmd struct {
 	subCmd
-	token   string
+	url     string
 	user    string
 	homeDir string
 }
@@ -38,7 +39,7 @@ type loginCmd struct {
 func newLoginCmd() *loginCmd {
 	cmd := &loginCmd{}
 	cmd.flags = gnuflag.NewFlagSet(cmd.Name(), gnuflag.ExitOnError)
-	cmd.flags.StringVar(&cmd.token, "token", "affinity", "Token name used for OAuth schemes")
+	cmd.flags.StringVar(&cmd.url, "url", "", "Affinity server URL")
 	cmd.flags.StringVar(&cmd.user, "user", "", "Authenticate user")
 	cmd.flags.StringVar(&cmd.homeDir, "homedir", "", "Affinity client home (default: ~/.affinity)")
 	return cmd
@@ -50,14 +51,22 @@ func (c *loginCmd) Desc() string { return "Log in to generate an affinity creden
 
 func (c *loginCmd) Main() {
 	schemes := make(SchemeMap)
-	schemes.Register(&usso.UssoScheme{Token: c.token})
 
+	if c.url == "" {
+		Usage(c, "--url is required")
+	}
 	if c.user == "" {
-		Usage(c, "User is required")
+		Usage(c, "--user is required")
 	}
 	if c.homeDir == "" {
 		c.homeDir = path.Join(os.Getenv("HOME"), ".affinity")
 	}
+
+	serverUrl, err := url.Parse(c.url)
+	if err != nil {
+		die(err)
+	}
+	schemes.Register(usso.NewScheme(serverUrl.Host))
 
 	user, err := ParseUser(c.user)
 	if err != nil {
@@ -74,16 +83,12 @@ func (c *loginCmd) Main() {
 		die(err)
 	}
 
-	err = os.MkdirAll(c.homeDir, 0700)
+	authStore, err := NewFileAuthStore(c.homeDir, serverUrl)
 	if err != nil {
 		die(err)
 	}
-
-	authFile := path.Join(c.homeDir, "auth")
-	f, err := os.OpenFile(authFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+	err = authStore.Write(values)
 	if err != nil {
 		die(err)
 	}
-	defer f.Close()
-	fmt.Fprintln(f, values.Encode())
 }

@@ -29,17 +29,17 @@ import (
 
 type serveCmd struct {
 	subCmd
-	addr  string
-	token string
-	mongo string
+	addr    string
+	extName string
+	mongo   string
 }
 
 func newServeCmd() *serveCmd {
 	cmd := &serveCmd{}
 	cmd.flags = gnuflag.NewFlagSet(cmd.Name(), gnuflag.ExitOnError)
-	cmd.flags.StringVar(&cmd.addr, "http", "", "Listen address")
+	cmd.flags.StringVar(&cmd.addr, "http", ":8080", "Listen address")
+	cmd.flags.StringVar(&cmd.extName, "name", "", "External server hostname")
 	cmd.flags.StringVar(&cmd.mongo, "mongo", "localhost:27017", "MongoDB URL")
-	cmd.flags.StringVar(&cmd.token, "token", "affinity", "Token name used for OAuth schemes")
 	return cmd
 }
 
@@ -48,12 +48,15 @@ func (c *serveCmd) Name() string { return "serve" }
 func (c *serveCmd) Desc() string { return "Run the affinity server" }
 
 func (c *serveCmd) Main() {
+	if c.extName == "" {
+		Usage(c, "--name is required")
+	}
 	store, err := mongo.NewMongoStore(c.mongo)
 	if err != nil {
 		die(err)
 	}
 	s := NewServer(store)
-	s.RegisterScheme(&usso.UssoScheme{Token: c.token})
+	s.RegisterScheme(usso.NewScheme(c.extName))
 	err = http.ListenAndServe(c.addr, s)
 	die(err)
 }

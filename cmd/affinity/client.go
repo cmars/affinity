@@ -19,10 +19,9 @@ package main
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"net/url"
 	"os"
 	"path"
-	"strings"
 
 	"launchpad.net/gnuflag"
 
@@ -55,12 +54,20 @@ func (c *groupCmd) Main(h cmdHandler) {
 	if c.homeDir == "" {
 		c.homeDir = path.Join(os.Getenv("HOME"), ".affinity")
 	}
-	authFile := path.Join(c.homeDir, "auth")
-	authContents, err := ioutil.ReadFile(authFile)
+
+	serverUrl, err := url.Parse(c.url)
 	if err != nil {
 		die(err)
 	}
-	auth := strings.TrimSpace(string(authContents))
+
+	authStore, err := NewFileAuthStore(c.homeDir, serverUrl)
+	if err != nil {
+		die(err)
+	}
+	auth, err := authStore.Read()
+	if err != nil {
+		die(err)
+	}
 	c.client = &client.Client{Auth: auth, Url: c.url}
 }
 

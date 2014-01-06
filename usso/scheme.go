@@ -30,7 +30,11 @@ import (
 
 type UssoScheme struct {
 	PasswordProvider PasswordProvider
-	Token string
+	Token            string
+}
+
+func NewScheme(host string) *UssoScheme {
+	return &UssoScheme{Token: fmt.Sprintf("Affinity groups on %s", host)}
 }
 
 func (s *UssoScheme) password() (string, error) {
@@ -53,11 +57,11 @@ func (s *UssoScheme) Auth(id string) (values url.Values, err error) {
 	}
 
 	return url.Values{
-		"ConsumerKey":    []string{ssoData.ConsumerKey},
-		"ConsumerSecret": []string{ssoData.ConsumerSecret},
-		"TokenKey":       []string{ssoData.TokenKey},
-		"TokenName":      []string{ssoData.TokenName},
-		"TokenSecret":    []string{ssoData.TokenSecret},
+		"ConsumerKey":     []string{ssoData.ConsumerKey},
+		"ConsumerSecret":  []string{ssoData.ConsumerSecret},
+		"TokenKey":        []string{ssoData.TokenKey},
+		"TokenName":       []string{ssoData.TokenName},
+		"TokenSecret":     []string{ssoData.TokenSecret},
 		"Affinity-Scheme": []string{s.Name()},
 	}, nil
 }

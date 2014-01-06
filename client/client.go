@@ -29,7 +29,7 @@ import (
 )
 
 type Client struct {
-	Auth string
+	Auth url.Values
 	Url  string
 
 	schemes SchemeMap
@@ -68,7 +68,7 @@ func (c *Client) doGroupRequest(group string, method string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Add("Authorization", c.Auth)
+	req.Header.Add("Authorization", c.Auth.Encode())
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -102,12 +102,12 @@ func (c *Client) doUserRequest(group string, user User, method string) ([]byte, 
 	if err != nil {
 		return nil, err
 	}
-	u.Path = fmt.Sprintf("/%s/%s/", group, user.String())
+	u.Path = fmt.Sprintf("/%v/%v/", group, user.String())
 	req, err := http.NewRequest(method, u.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Add("Authorization", c.Auth)
+	req.Header.Add("Authorization", c.Auth.Encode())
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
