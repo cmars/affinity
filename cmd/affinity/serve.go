@@ -24,7 +24,7 @@ import (
 
 	. "github.com/cmars/affinity/server"
 	"github.com/cmars/affinity/server/mongo"
-	"github.com/cmars/affinity/usso"
+	"github.com/cmars/affinity/providers/usso"
 )
 
 type serveCmd struct {

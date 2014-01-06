@@ -26,7 +26,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	. "github.com/cmars/affinity"
-	"github.com/cmars/affinity/usso"
+	"github.com/cmars/affinity/providers/usso"
 )
 
 type loginCmd struct {
