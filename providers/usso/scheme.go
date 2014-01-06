@@ -25,7 +25,7 @@ import (
 
 	"launchpad.net/usso"
 
-	. "github.com/cmars/affinity"
+	. "launchpad.net/go-affinity"
 )
 
 type UssoScheme struct {

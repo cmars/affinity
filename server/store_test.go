@@ -23,8 +23,8 @@ import (
 
 	. "launchpad.net/gocheck"
 
-	. "github.com/cmars/affinity"
-	. "github.com/cmars/affinity/server"
+	. "launchpad.net/go-affinity"
+	. "launchpad.net/go-affinity/server"
 )
 
 func TestStoreSuite(t *testing.T) { TestingT(t) }

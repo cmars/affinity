@@ -25,8 +25,8 @@ import (
 
 	"launchpad.net/gnuflag"
 
-	. "github.com/cmars/affinity"
-	"github.com/cmars/affinity/client"
+	. "launchpad.net/go-affinity"
+	"launchpad.net/go-affinity/client"
 )
 
 type groupCmd struct {

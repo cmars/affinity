@@ -21,8 +21,8 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 
-	. "github.com/cmars/affinity"
-	"github.com/cmars/affinity/server"
+	. "launchpad.net/go-affinity"
+	"launchpad.net/go-affinity/server"
 )
 
 type MongoStore struct {

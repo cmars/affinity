@@ -23,9 +23,9 @@ import (
 	"labix.org/v2/mgo"
 	"launchpad.net/gnuflag"
 
-	"github.com/cmars/affinity/providers/usso"
-	. "github.com/cmars/affinity/server"
-	"github.com/cmars/affinity/server/mongo"
+	"launchpad.net/go-affinity/providers/usso"
+	. "launchpad.net/go-affinity/server"
+	"launchpad.net/go-affinity/server/mongo"
 )
 
 type serveCmd struct {

@@ -27,7 +27,7 @@ import (
 
 	"github.com/gorilla/mux"
 
-	. "github.com/cmars/affinity"
+	. "launchpad.net/go-affinity"
 )
 
 type Response struct {

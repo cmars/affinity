@@ -20,7 +20,7 @@ package server
 import (
 	"fmt"
 
-	. "github.com/cmars/affinity"
+	. "launchpad.net/go-affinity"
 )
 
 var NotFound error = fmt.Errorf("Not found")
