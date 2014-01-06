@@ -31,16 +31,20 @@ type MongoStore struct {
 	groups *mgo.Collection
 }
 
-func NewMongoStore(url string) (*MongoStore, error) {
+func DialMongoStore(url string, dbname string) (*MongoStore, error) {
 	session, err := mgo.Dial(url)
 	if err != nil {
 		return nil, err
 	}
+	return NewMongoStore(session, dbname)
+}
+
+func NewMongoStore(session *mgo.Session, dbname string) (*MongoStore, error) {
 	store := &MongoStore{Session: session}
-	store.db = store.DB("affinity")
+	store.db = store.DB(dbname)
 	store.groups = store.db.C("groups")
 
-	err = store.groups.EnsureIndex(mgo.Index{
+	err := store.groups.EnsureIndex(mgo.Index{
 		Key:    []string{"id"},
 		Unique: true,
 	})

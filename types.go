@@ -22,12 +22,15 @@ import (
 	"strings"
 )
 
+const ANY_USER = "*"
+
 type User struct {
 	Scheme, Id string
 }
 
 func (u User) Equals(other User) bool {
-	return u.Scheme == other.Scheme && u.Id == other.Id
+	return u.Scheme == other.Scheme && (u.Id == other.Id ||
+		u.Id == ANY_USER || other.Id == ANY_USER)
 }
 
 func (u User) String() string {

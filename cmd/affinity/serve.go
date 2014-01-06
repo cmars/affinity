@@ -20,11 +20,12 @@ package main
 import (
 	"net/http"
 
+	"labix.org/v2/mgo"
 	"launchpad.net/gnuflag"
 
+	"github.com/cmars/affinity/providers/usso"
 	. "github.com/cmars/affinity/server"
 	"github.com/cmars/affinity/server/mongo"
-	"github.com/cmars/affinity/providers/usso"
 )
 
 type serveCmd struct {
@@ -32,6 +33,7 @@ type serveCmd struct {
 	addr    string
 	extName string
 	mongo   string
+	dbname  string
 }
 
 func newServeCmd() *serveCmd {
@@ -40,6 +42,7 @@ func newServeCmd() *serveCmd {
 	cmd.flags.StringVar(&cmd.addr, "http", ":8080", "Listen address")
 	cmd.flags.StringVar(&cmd.extName, "name", "", "External server hostname")
 	cmd.flags.StringVar(&cmd.mongo, "mongo", "localhost:27017", "MongoDB URL")
+	cmd.flags.StringVar(&cmd.dbname, "database", "affinity", "Mongo database name")
 	return cmd
 }
 
@@ -51,7 +54,11 @@ func (c *serveCmd) Main() {
 	if c.extName == "" {
 		Usage(c, "--name is required")
 	}
-	store, err := mongo.NewMongoStore(c.mongo)
+	session, err := mgo.Dial(c.mongo)
+	if err != nil {
+		die(err)
+	}
+	store, err := mongo.NewMongoStore(session, c.dbname)
 	if err != nil {
 		die(err)
 	}

@@ -84,6 +84,12 @@ func (s *Server) Authenticate(r *http.Request) (schemeId, userId string, err err
 		return "", "", fmt.Errorf("unsupported scheme:", schemeId)
 	}
 	userId, err = scheme.Validator().Validate(values)
+	if err != nil {
+		return "", "", err
+	}
+	if userId == ANY_USER {
+		return "", "", fmt.Errorf("Cannot authenticate a wildcard user")
+	}
 	return schemeId, userId, err
 }
 
@@ -184,11 +190,11 @@ func (s *Server) handleUser(r *http.Request) *Response {
 
 	switch r.Method {
 	case "GET":
-		if !group.HasAdmin(authUser) && !group.HasMember(authUser) {
+		if !group.HasAdmin(authUser) && (!group.HasMember(authUser) || !authUser.Equals(user)) {
 			return &Response{
 				Error: fmt.Errorf("auth user %s:%s: not allowed to check membership of %s:%s",
 					authSchemeId, authSchemeId, user.Scheme, user.Id),
-				StatusCode: http.StatusNotFound,
+				StatusCode: http.StatusUnauthorized,
 			}
 		}
 		if !group.HasAdmin(user) && !group.HasMember(user) {
