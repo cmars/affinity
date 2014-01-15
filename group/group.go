@@ -101,12 +101,16 @@ func (gr *groupRole) Can(do Permission) bool {
 	return has
 }
 
+// CreatorRole is allowed to create groups
 var CreatorRole *groupRole = &groupRole{"creator", creatorCapabilities}
 
+// OwnerRole is allowed all group-level operations on a group
 var OwnerRole *groupRole = &groupRole{"owner", ownerCapabilities}
 
+// AdminRole is allowed to add, remove and check membership.
 var AdminRole *groupRole = &groupRole{"admin", adminCapabilities}
 
+// ObserverRole is allow to check membership of a group.
 var ObserverRole *groupRole = &groupRole{"observer", observerCapabilities}
 
 type groupResource string

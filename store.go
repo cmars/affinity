@@ -18,9 +18,8 @@
 package affinity
 
 // Store defines the backend storage API for the affinitya role-based
-// access control system. The interface is low-level enough for those
-// fashionable NoSQL databases. Any resemblance to a triplestore is pure
-// coincidence.
+// access control system. The interface is designed to be low-level enough
+// for NoSQL databases such as document or key-value stores.
 type Store interface {
 	// HasGrant tests if the principal is assigned to a role for operating on the resource.
 	// To test if the grant is conferred to the principal by its parents,
