@@ -25,7 +25,7 @@ import (
 
 	"launchpad.net/go-affinity/providers/usso"
 	. "launchpad.net/go-affinity/server"
-	"launchpad.net/go-affinity/server/mongo"
+	"launchpad.net/go-affinity/storage/mongo"
 )
 
 type serveCmd struct {

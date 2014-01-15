@@ -26,6 +26,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	. "launchpad.net/go-affinity"
+	"launchpad.net/go-affinity/client"
 	"launchpad.net/go-affinity/providers/usso"
 )
 
@@ -83,7 +84,7 @@ func (c *loginCmd) Main() {
 		die(err)
 	}
 
-	authStore, err := NewFileAuthStore(c.homeDir, serverUrl)
+	authStore, err := client.NewFileAuthStore(c.homeDir, serverUrl)
 	if err != nil {
 		die(err)
 	}

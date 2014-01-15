@@ -28,6 +28,7 @@ import (
 	"github.com/gorilla/mux"
 
 	. "launchpad.net/go-affinity"
+	"launchpad.net/go-affinity/group"
 )
 
 type Response struct {
@@ -66,31 +67,32 @@ func (s *Server) RegisterScheme(scheme Scheme) {
 	s.schemes[scheme.Name()] = scheme
 }
 
-func (s *Server) Authenticate(r *http.Request) (schemeId, userId string, err error) {
+func (s *Server) Authenticate(r *http.Request) (user User, err error) {
 	authStr := r.Header.Get("Authorization")
 	if authStr == "" {
-		return "", "", fmt.Errorf("Request not authenticated")
+		return User{}, fmt.Errorf("Request not authenticated")
 	}
 	values, err := url.ParseQuery(authStr)
 	if err != nil {
-		return "", "", err
+		return User{}, err
 	}
-	schemeId = values.Get("Affinity-Scheme")
+	schemeId := values.Get("Affinity-Scheme")
 	if schemeId == "" {
-		return "", "", fmt.Errorf("Scheme not specified")
+		return User{}, fmt.Errorf("Scheme not specified")
 	}
 	scheme, has := s.schemes[schemeId]
 	if !has {
-		return "", "", fmt.Errorf("unsupported scheme:", schemeId)
+		return User{}, fmt.Errorf("unsupported scheme:", schemeId)
 	}
-	userId, err = scheme.Validator().Validate(values)
+	userId, err := scheme.Validator().Validate(values)
 	if err != nil {
-		return "", "", err
+		return User{}, err
 	}
-	if userId == ANY_USER {
-		return "", "", fmt.Errorf("Cannot authenticate a wildcard user")
+	user = User{Identity{schemeId, userId}}
+	if user.Wildcard() {
+		return User{}, fmt.Errorf("Cannot authenticate a wildcard user")
 	}
-	return schemeId, userId, err
+	return user, nil
 }
 
 func (s *Server) HandleGroup(w http.ResponseWriter, r *http.Request) {
@@ -102,7 +104,7 @@ func (s *Server) handleGroup(r *http.Request) *Response {
 	log.Println(r)
 	vars := mux.Vars(r)
 	groupId := vars["group"]
-	schemeId, userId, err := s.Authenticate(r)
+	authUser, err := s.Authenticate(r)
 	if err != nil {
 		return &Response{
 			Error:      fmt.Errorf("auth failed: %v", err),
@@ -110,43 +112,24 @@ func (s *Server) handleGroup(r *http.Request) *Response {
 		}
 	}
 
-	group, getErr := s.store.GetGroup(groupId)
+	groupSrv := group.NewGroupService(s.store, authUser)
 
 	switch r.Method {
 	case "PUT":
-		if getErr != NotFound {
-			if getErr == nil {
-				return &Response{Error: fmt.Errorf("Cannot create group: already exists")}
-			}
-			return &Response{Error: getErr}
-		}
-		err = s.store.AddGroup(&Group{Id: groupId, Admins: []User{User{schemeId, userId}}})
+		err = groupSrv.AddGroup(groupId)
 		return &Response{Error: err}
 	case "GET":
-		if getErr != nil {
-			return &Response{Error: getErr}
+		g, err := groupSrv.Group(groupId)
+		if err != nil {
+			return &Response{Error: err}
 		}
-		if !group.HasAdmin(User{schemeId, userId}) {
-			return &Response{
-				Error:      fmt.Errorf("not an admin of %s: %s:%s", groupId, schemeId, userId),
-				StatusCode: http.StatusForbidden,
-			}
-		}
-		out, err := json.Marshal(group)
+		out, err := json.Marshal(g)
 		resp := &Response{Error: err}
 		resp.Write(out)
 		return resp
 	case "DELETE":
-		if getErr != nil {
-			return &Response{Error: getErr}
-		}
-		if !group.HasAdmin(User{schemeId, userId}) {
-			return &Response{
-				Error:      fmt.Errorf("not an admin of %s: %s:%s", groupId, schemeId, userId),
-				StatusCode: http.StatusForbidden,
-			}
-		}
-		return &Response{Error: s.store.DeleteGroup(groupId)}
+		err = groupSrv.RemoveGroup(groupId)
+		return &Response{Error: err}
 	}
 	return &Response{
 		Error:      fmt.Errorf("unsupported HTTP method: %v", r.Method),
@@ -174,53 +157,35 @@ func (s *Server) handleUser(r *http.Request) *Response {
 		return &Response{Error: fmt.Errorf("unsupported scheme: %s", user.Scheme)}
 	}
 
-	authSchemeId, authUserId, err := s.Authenticate(r)
+	authUser, err := s.Authenticate(r)
 	if err != nil {
 		return &Response{
 			Error:      fmt.Errorf("auth failed: %v", err),
 			StatusCode: http.StatusUnauthorized,
 		}
 	}
-	authUser := User{authSchemeId, authUserId}
 
-	group, err := s.store.GetGroup(groupId)
-	if err != nil {
-		return &Response{Error: err}
-	}
+	groupSrv := group.NewGroupService(s.store, authUser)
 
 	switch r.Method {
 	case "GET":
-		if !group.HasAdmin(authUser) && (!group.HasMember(authUser) || !authUser.Equals(user)) {
-			return &Response{
-				Error: fmt.Errorf("auth user %s:%s: not allowed to check membership of %s:%s",
-					authSchemeId, authSchemeId, user.Scheme, user.Id),
-				StatusCode: http.StatusUnauthorized,
-			}
+		has, err := groupSrv.CheckMember(groupId, user)
+		if err != nil {
+			return &Response{Error: err}
 		}
-		if !group.HasAdmin(user) && !group.HasMember(user) {
+		if !has {
 			return &Response{StatusCode: http.StatusNotFound}
 		}
 		return &Response{}
 	case "PUT":
-		if !group.HasAdmin(authUser) {
-			return &Response{
-				Error: fmt.Errorf("cannot %s: %s:%s is not an admin of %s",
-					r.Method, authSchemeId, authUserId, groupId),
-				StatusCode: http.StatusForbidden}
-		}
-		err = s.store.AddMember(groupId, user)
+		err = groupSrv.AddMember(groupId, user)
+		return &Response{Error: err}
 	case "DELETE":
-		if !group.HasAdmin(authUser) {
-			return &Response{
-				Error: fmt.Errorf("cannot %s: %s:%s is not an admin of %s",
-					r.Method, authSchemeId, authUserId, groupId),
-				StatusCode: http.StatusForbidden}
-		}
-		err = s.store.DeleteMember(groupId, user)
-	default:
-		return &Response{
-			Error:      fmt.Errorf("unsupported HTTP method: %s", r.Method),
-			StatusCode: http.StatusMethodNotAllowed}
+		err = groupSrv.RemoveMember(groupId, user)
+		return &Response{Error: err}
 	}
-	return &Response{Error: err}
+	return &Response{
+		Error:      fmt.Errorf("unsupported HTTP method: %s", r.Method),
+		StatusCode: http.StatusMethodNotAllowed,
+	}
 }

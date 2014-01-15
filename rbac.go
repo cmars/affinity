@@ -90,7 +90,7 @@ func NewAccess(store Store, roles RoleMap) *Access {
 
 // Can tests if the princial has a permission on a given resource.
 func (s *Access) Can(pr Principal, pm Permission, r Resource) (bool, error) {
-	roleGrants, err := s.Store.RoleGrants(pr.String(), r.URI())
+	roleGrants, err := s.Store.RoleGrants(pr.String(), r.URI(), true)
 	if err != nil {
 		return false, err
 	}

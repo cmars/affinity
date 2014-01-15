@@ -25,43 +25,53 @@ import (
 // group database -- such as adding and removing groups.
 const AffinityGroupsUri = "affinity-group-service:"
 
-// AddGroupPerm is the permission on this service to add a group.
+// AddGroupPerm is permission on this service to add a group.
 type AddGroupPerm struct{}
 
 func (p AddGroupPerm) Name() string { return "add-group" }
 
-// RemoveGroupPerm is the permission to remove a group.
+// RemoveGroupPerm is permission to remove a group.
 type RemoveGroupPerm struct{}
 
 func (p RemoveGroupPerm) Name() string { return "remove-group" }
 
-// AddMemberPerm is the permission to add a member to a group.
+// AddMemberPerm is permission to add a member to a group.
 type AddMemberPerm struct{}
 
 func (p AddMemberPerm) Name() string { return "add-member" }
 
-// RemoveMemberPerm is the permission to remove a member from a group.
+// RemoveMemberPerm is permission to remove a member from a group.
 type RemoveMemberPerm struct{}
 
 func (p RemoveMemberPerm) Name() string { return "remove-member" }
 
-// CheckMemberPerm is the permission to check membership on a group.
+// CheckMemberPerm is permission to check membership on a group.
 type CheckMemberPerm struct{}
 
 func (p CheckMemberPerm) Name() string { return "check-member" }
 
-// GrantOnGroupPerm is the permission to grant permissions on a group.
+// GrantOnGroupPerm is permission to grant permissions on a group.
 type GrantOnGroupPerm struct{}
 
 func (p GrantOnGroupPerm) Name() string { return "grant-on-group" }
 
-// GrantOnServicePerm is the permission to grant permissions on this service.
+// RevokeOnGroupPerm is permission to revoke permissions on a group.
+type RevokeOnGroupPerm struct{}
+
+func (p RevokeOnGroupPerm) Name() string { return "revoke-on-group" }
+
+// GrantOnServicePerm is permission to grant permissions on this service.
 type GrantOnServicePerm struct{}
 
 func (p GrantOnServicePerm) Name() string { return "grant-on-service" }
 
+// RevokeOnServicePerm is permission to revoke permissions on this service.
+type RevokeOnServicePerm struct{}
+
+func (p RevokeOnServicePerm) Name() string { return "revoke-on-service" }
+
 var serviceCapabilities PermissionMap = NewPermissionMap(
-	GrantOnServicePerm{}, AddGroupPerm{},
+	GrantOnServicePerm{}, RevokeOnServicePerm{}, AddGroupPerm{},
 )
 
 var creatorCapabilities PermissionMap = NewPermissionMap(
@@ -69,7 +79,8 @@ var creatorCapabilities PermissionMap = NewPermissionMap(
 )
 
 var ownerCapabilities PermissionMap = NewPermissionMap(
-	GrantOnGroupPerm{}, RemoveGroupPerm{},
+	GrantOnGroupPerm{}, RevokeOnGroupPerm{},
+	RemoveGroupPerm{},
 	AddMemberPerm{}, RemoveMemberPerm{},
 	CheckMemberPerm{},
 )
@@ -101,6 +112,9 @@ func (gr *groupRole) Can(do Permission) bool {
 	return has
 }
 
+// ServiceRole is allowed to manage the service
+var ServiceRole *groupRole = &groupRole{"service", serviceCapabilities}
+
 // CreatorRole is allowed to create groups
 var CreatorRole *groupRole = &groupRole{"creator", creatorCapabilities}
 
@@ -127,4 +141,4 @@ func (_ serviceResource) Capabilities() PermissionMap {
 
 func (_ serviceResource) URI() string { return AffinityGroupsUri }
 
-var GroupRoles RoleMap = NewRoleMap(CreatorRole, OwnerRole, AdminRole, ObserverRole)
+var GroupRoles RoleMap = NewRoleMap(ServiceRole, CreatorRole, OwnerRole, AdminRole, ObserverRole)

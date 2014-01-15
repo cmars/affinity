@@ -22,15 +22,19 @@ package affinity
 // for NoSQL databases such as document or key-value stores.
 type Store interface {
 	// HasGrant tests if the principal is assigned to a role for operating on the resource.
-	// To test if the grant is conferred to the principal by its parents,
-	// use effective=true.
-	HasGrant(principal, role, resource string, effective bool) (bool, error)
-	// AddChild adds a parent-child relationship between principal identifiers.
-	// This is used to store groups.
-	AddChild(parent, child string) error
-	// ParentOf returns the parent of the given identifier, if one was previously
-	// declared. If not, returns NotFound.
-	ParentOf(principal string) (string, error)
+	HasGrant(principal, role, resource string, transitive bool) (bool, error)
+	// AddGroup adds a group.
+	AddGroup(group string) error
+	// RemoveGroup removes a group and all its members
+	RemoveGroup(group string) error
+	// AddMember adds a group-member relationship between principal identifiers.
+	AddMember(group, member string) error
+	// RemoveMember removes a group-member relationship between principal identifiers.
+	RemoveMember(group, member string) error
+	// GroupsOf returns the groups to which the given principal belongs to.
+	// Note that a principal can be a member of multiple groups. Either immediate
+	// or complete, transitive group memberships can be obtained.
+	GroupsOf(principal string, transitive bool) ([]string, error)
 	// InsertGrant adds a principal-role-resource statement of fact that represents
 	// a role assignment.
 	InsertGrant(principal, role, resource string) error
@@ -39,9 +43,9 @@ type Store interface {
 	// ResourceGrants returns index-matched slices containing all the principal-role grants
 	// on the given resource.
 	ResourceGrants(resource string) (principals, roles []string, err error)
-	// PrincipalGrants returns index-matched slices containing all the effective
-	// role-resource pairs. For all grants conferred by parents, use effective=true.
-	PrincipalGrants(principal string, effective bool) (roles, resources []string, err error)
-	// RoleGrants returns a slice of all the effective roles granted to a principal on a resource.
-	RoleGrants(principal, resource string) ([]string, error)
+	// PrincipalGrants returns index-matched slices containing the immediate
+	// or complete, transitive role-resource pairs that apply to the principal.
+	PrincipalGrants(principal string, transitive bool) (roles, resources []string, err error)
+	// RoleGrants returns a slice of the immediate roles granted to a principal on a resource.
+	RoleGrants(principal, resource string, transitive bool) ([]string, error)
 }
