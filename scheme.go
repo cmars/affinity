@@ -23,18 +23,27 @@ import (
 	"code.google.com/p/gopass"
 )
 
+// PasswordProvider obtains a password for authentication providers
+// that need one in order to generate an auth token.
 type PasswordProvider interface {
+	// Password obtains the password string and any error that occurred
+	// in the process.
 	Password() (string, error)
 }
 
+// PasswordPrompter obtains a password for authentication
+// by prompting for input on the current terminal device.
 type PasswordPrompter struct{}
 
 func (pp *PasswordPrompter) Password() (string, error) {
 	return gopass.GetPass("Password: ")
 }
 
+// SchemeAuthorizer creates authorization tokens for a given identity.
 type SchemeAuthorizer interface {
-	// Auth creates the authorization parameters for the given identity. Other parameters (passphrases, private keys, etc.) may be used as factors in creating them for various schemes.
+	// Auth obtains the authorization token parameters for the given identity.
+	// Some implementations may support multiple factors
+	// (passphrases, private keys, etc.) when creating the authorization.
 	Auth(id string) (values url.Values, err error)
 }
 
@@ -44,14 +53,24 @@ type SchemeValidator interface {
 	Validate(values url.Values) (id string, err error)
 }
 
+// Scheme is a system which identifies principal user identities, and
+// provides a means for those users to prove their identity by authenticating
+// to generate an authorization token for some purpose.
 type Scheme interface {
+	// Authorizer returns the authorization token service for this scheme
+	// implementation.
 	Authorizer() SchemeAuthorizer
+	// Name returns the locally bound name for this scheme.
 	Name() string
+	// Validator returns the token validation service for this scheme
+	// implementation.
 	Validator() SchemeValidator
 }
 
+// SchemeMap stores registered Scheme name-to-instance bindings.
 type SchemeMap map[string]Scheme
 
+// Register adds a scheme implementation to the map.
 func (sm SchemeMap) Register(scheme Scheme) {
 	sm[scheme.Name()] = scheme
 }

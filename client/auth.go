@@ -15,7 +15,7 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-package affinity
+package client
 
 import (
 	"fmt"
@@ -26,12 +26,16 @@ import (
 	"strings"
 )
 
+// FileAuthStore stores an affinity client's authentication credential
+// in a directory structure with file naming convention.
 type FileAuthStore struct {
 	homeDir  string
 	url      *url.URL
 	authFile string
 }
 
+// NewFileAuthStore creates a new FileAuthStore at the given
+// directory.
 func NewFileAuthStore(homeDir string, u *url.URL) (*FileAuthStore, error) {
 	dir := path.Join(homeDir, u.Host)
 	err := os.MkdirAll(dir, 0700)
@@ -42,6 +46,7 @@ func NewFileAuthStore(homeDir string, u *url.URL) (*FileAuthStore, error) {
 	return &FileAuthStore{dir, u, authFile}, nil
 }
 
+// Read reads and decodes the authentication values from storage.
 func (s *FileAuthStore) Read() (url.Values, error) {
 	authContents, err := ioutil.ReadFile(s.authFile)
 	if err != nil {
@@ -51,6 +56,7 @@ func (s *FileAuthStore) Read() (url.Values, error) {
 	return url.ParseQuery(auth)
 }
 
+// Write encodes and writes the authentication values to storage.
 func (s *FileAuthStore) Write(values url.Values) error {
 	f, err := os.OpenFile(s.authFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {

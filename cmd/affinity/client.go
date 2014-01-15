@@ -60,7 +60,7 @@ func (c *groupCmd) Main(h cmdHandler) {
 		die(err)
 	}
 
-	authStore, err := NewFileAuthStore(c.homeDir, serverUrl)
+	authStore, err := client.NewFileAuthStore(c.homeDir, serverUrl)
 	if err != nil {
 		die(err)
 	}
