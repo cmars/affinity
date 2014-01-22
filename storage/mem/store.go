@@ -1,4 +1,4 @@
-package affinity_test
+package mem
 
 import (
 	. "launchpad.net/go-affinity"
@@ -21,7 +21,7 @@ type memStore struct {
 	groups groupMap
 }
 
-func NewMemStore() Store {
+func NewStore() Store {
 	return &memStore{
 		grants: make(grantSet),
 		groups: make(groupMap),

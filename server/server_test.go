@@ -25,6 +25,7 @@ import (
 	. "launchpad.net/gocheck"
 
 	. "launchpad.net/go-affinity/server"
+	"launchpad.net/go-affinity/storage/mem"
 )
 
 func TestServerSuite(t *testing.T) { TestingT(t) }
@@ -34,7 +35,7 @@ type ServerSuite struct{}
 var _ = Suite(&ServerSuite{})
 
 func (ss *ServerSuite) TestServerApi(c *C) {
-	s := NewServer(NewTestStore())
+	s := NewServer(mem.NewStore())
 	ts := httptest.NewServer(s)
 	defer ts.Close()
 

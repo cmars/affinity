@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	. "launchpad.net/gocheck"
+
+	"launchpad.net/go-affinity/storage/mem"
 )
 
 type AffinitySuite struct {
@@ -16,8 +18,8 @@ func Test(t *testing.T) { TestingT(t) }
 var _ = Suite(&AffinitySuite{})
 
 func (s *AffinitySuite) SetUpTest(c *C) {
-	s.StoreSuite = NewStoreSuite(NewMemStore())
+	s.StoreSuite = NewStoreSuite(mem.NewStore())
 	s.StoreSuite.SetUp(c)
-	s.RbacSuite = NewRbacSuite(NewMemStore())
+	s.RbacSuite = NewRbacSuite(mem.NewStore())
 	s.RbacSuite.SetUp(c)
 }
