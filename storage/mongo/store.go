@@ -20,6 +20,9 @@ package mongo
 import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
+
+	"launchpad.net/go-affinity"
+	"launchpad.net/go-affinity/util"
 )
 
 type grant struct {
@@ -36,6 +39,15 @@ type MongoStore struct {
 	grants  *mgo.Collection
 	groups  *mgo.Collection
 	members *mgo.Collection
+}
+
+func grantError(err error) error {
+	if mgo.IsDup(err) {
+		return affinity.ErrAlreadyGranted
+	} else if err == mgo.ErrNotFound {
+		return affinity.ErrNotFound
+	}
+	return err
 }
 
 func DialMongoStore(url string, dbname string) (*MongoStore, error) {
@@ -125,7 +137,7 @@ func (s *MongoStore) RemoveMember(group, member string) error {
 }
 
 func (s *MongoStore) GroupsOf(principal string, transitive bool) ([]string, error) {
-	var groups []string
+	var result []string
 	unique := make(map[string]bool) // used to make result unique
 	pending := []string{principal}
 	for len(pending) > 0 {
@@ -146,27 +158,30 @@ func (s *MongoStore) GroupsOf(principal string, transitive bool) ([]string, erro
 				unique[gm.Group] = true
 			}
 		}
+		result = append(result, groups...)
 		if transitive {
 			pending = append(pending, groups...)
 		}
 	}
-	return groups, nil
+	return util.UniqueStrings(result), nil
 }
 
 func (s *MongoStore) InsertGrant(principal, role, resource string) error {
-	return s.grants.Insert(bson.M{
+	err := s.grants.Insert(bson.M{
 		"principal": principal,
 		"role":      role,
 		"resource":  resource,
 	})
+	return grantError(err)
 }
 
 func (s *MongoStore) RemoveGrant(principal, role, resource string) error {
-	return s.grants.Remove(bson.M{
+	err := s.grants.Remove(bson.M{
 		"principal": principal,
 		"role":      role,
 		"resource":  resource,
 	})
+	return grantError(err)
 }
 
 func (s *MongoStore) ResourceGrants(resource string) (principals, roles []string, err error) {

@@ -19,6 +19,7 @@ package mem
 
 import (
 	. "launchpad.net/go-affinity"
+	"launchpad.net/go-affinity/util"
 )
 
 type grant struct {
@@ -27,11 +28,7 @@ type grant struct {
 
 type grantSet map[grant]bool
 
-type stringSet map[string]bool
-
-type Set map[string]bool
-
-type groupMap map[string]stringSet
+type groupMap map[string]util.StringSet
 
 type memStore struct {
 	grants grantSet
@@ -68,7 +65,7 @@ func (s *memStore) AddGroup(group string) error {
 	if _, has := s.groups[group]; has {
 		return nil
 	}
-	s.groups[group] = make(stringSet)
+	s.groups[group] = make(util.StringSet)
 	return nil
 }
 
@@ -80,7 +77,7 @@ func (s *memStore) RemoveGroup(group string) error {
 func (s *memStore) AddMember(group, member string) error {
 	groups, has := s.groups[group]
 	if !has {
-		return NotFound
+		return ErrNotFound
 	}
 	groups[member] = true
 	return nil
@@ -89,7 +86,7 @@ func (s *memStore) AddMember(group, member string) error {
 func (s *memStore) RemoveMember(group, member string) error {
 	groups, has := s.groups[group]
 	if !has {
-		return NotFound
+		return ErrNotFound
 	}
 	delete(groups, member)
 	return nil
@@ -110,7 +107,7 @@ func (s *memStore) GroupsOf(principal string, transitive bool) ([]string, error)
 			}
 		}
 	}
-	return unique(result), nil
+	return util.UniqueStrings(result), nil
 }
 
 func (s *memStore) InsertGrant(principal, role, resource string) error {
@@ -133,34 +130,8 @@ func (s *memStore) ResourceGrants(resource string) (principals, roles []string, 
 	return
 }
 
-func unique(items []string) []string {
-	var result []string
-	u := make(map[string]bool)
-	for _, item := range items {
-		u[item] = true
-	}
-	for item := range u {
-		result = append(result, item)
-	}
-	return result
-}
-
-func newStringSet(items []string) stringSet {
-	result := make(stringSet)
-	for _, item := range items {
-		result[item] = true
-	}
-	return result
-}
-
-func (ss stringSet) AddAll(items ...string) {
-	for _, item := range items {
-		ss[item] = true
-	}
-}
-
 func (s *memStore) PrincipalGrants(principal string, transitive bool) (roles, resources []string, err error) {
-	search := make(stringSet)
+	search := make(util.StringSet)
 	if transitive {
 		var groups []string
 		groups, err = s.GroupsOf(principal, true)

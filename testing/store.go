@@ -15,7 +15,7 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-package affinity_test
+package testing
 
 import (
 	. "launchpad.net/gocheck"
@@ -60,7 +60,7 @@ var futuramaGrants []grantData = []grantData{
 	{"test:zoidberg", "passenger", "spacecraft:ship"},
 }
 
-func (s *StoreSuite) TestFlatGrantStore(c *C) {
+func (s *StoreTests) TestFlatGrantStore(c *C) {
 	var has bool
 	var err error
 	has, err = s.Store.HasGrant("test:bender", "passenger", "spacecraft:ship", false)
@@ -78,4 +78,30 @@ func (s *StoreSuite) TestFlatGrantStore(c *C) {
 	has, err = s.Store.HasGrant("test:santa_claus", "pilot", "spacecraft:ship", false)
 	c.Assert(has, Equals, false)
 	c.Assert(err, IsNil)
+}
+
+func (s *StoreTests) TestGroupGrants(c *C) {
+	var has bool
+	var err error
+	// Let's create a deliver group
+	s.Store.AddGroup("delivery-team")
+	for _, employee := range []string{
+		"test:fry", "test:leela", "test:bender", "test:amy",
+	} {
+		s.Store.AddMember("delivery-team", employee)
+	}
+	groups, err := s.Store.GroupsOf("test:fry", true)
+	c.Assert(err, IsNil)
+	c.Assert(groups, HasLen, 1)
+	c.Assert(groups[0], Equals, "delivery-team")
+	// Let's grant a role to the group
+	err = s.Store.InsertGrant("delivery-team", "pickup-delivery", "planet-express:postbox")
+	c.Assert(err, IsNil)
+	// Fry should be able to pick up a delivery from a post box.
+	has, err = s.Store.HasGrant("test:fry", "pickup-delivery", "planet-express:postbox", true)
+	c.Assert(has, Equals, true)
+	c.Assert(err, IsNil)
+	// However this grant was to a team of which he is a member
+	has, err = s.Store.HasGrant("test:fry", "pickup-delivery", "planet-express:postbox", false)
+	c.Assert(has, Equals, false)
 }

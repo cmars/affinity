@@ -21,7 +21,9 @@ import (
 	"fmt"
 )
 
-var NotFound error = fmt.Errorf("Not found")
+var ErrNotFound error = fmt.Errorf("Not found")
+
+var ErrAlreadyGranted error = fmt.Errorf("Already granted")
 
 // Permission represents a granular capability that can be performed on a resource.
 type Permission interface {

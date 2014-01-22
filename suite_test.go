@@ -18,25 +18,26 @@
 package affinity_test
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	. "launchpad.net/gocheck"
 
 	"launchpad.net/go-affinity/storage/mem"
+	"launchpad.net/go-affinity/testing"
 )
 
 type AffinitySuite struct {
-	*StoreSuite
-	*RbacSuite
+	*testing.StoreSuite
+	*testing.RbacSuite
 }
 
-func Test(t *testing.T) { TestingT(t) }
+func Test(t *stdtesting.T) { TestingT(t) }
 
 var _ = Suite(&AffinitySuite{})
 
 func (s *AffinitySuite) SetUpTest(c *C) {
-	s.StoreSuite = NewStoreSuite(mem.NewStore())
+	s.StoreSuite = testing.NewStoreSuite(mem.NewStore())
 	s.StoreSuite.SetUp(c)
-	s.RbacSuite = NewRbacSuite(mem.NewStore())
+	s.RbacSuite = testing.NewRbacSuite(mem.NewStore())
 	s.RbacSuite.SetUp(c)
 }

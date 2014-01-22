@@ -15,7 +15,7 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-package affinity_test
+package testing
 
 import (
 	. "launchpad.net/gocheck"
@@ -23,10 +23,14 @@ import (
 	. "launchpad.net/go-affinity"
 )
 
-type RbacSuite struct {
+type RbacTests struct {
 	*StoreTests
 	Access *Access
 	Admin  *Admin
+}
+
+type RbacSuite struct {
+	*RbacTests
 }
 
 type EmptyBucketPerm struct{}
@@ -128,9 +132,11 @@ func (_ bureaucraticResource) Capabilities() PermissionMap { return Bureaucratic
 func (r bureaucraticResource) URI() string                 { return string(r) }
 
 func NewRbacSuite(s Store) *RbacSuite {
-	return &RbacSuite{&StoreTests{s},
-		NewAccess(s, FuturamaRoles),
-		NewAdmin(s, FuturamaRoles),
+	return &RbacSuite{
+		&RbacTests{&StoreTests{s},
+			NewAccess(s, FuturamaRoles),
+			NewAdmin(s, FuturamaRoles),
+		},
 	}
 }
 
