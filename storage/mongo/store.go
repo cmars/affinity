@@ -23,11 +23,11 @@ import (
 )
 
 type grant struct {
-	principal, role, resource string
+	Principal, Role, Resource string
 }
 
 type groupMember struct {
-	group, member string
+	Group, Member string
 }
 
 type MongoStore struct {
@@ -141,9 +141,9 @@ func (s *MongoStore) GroupsOf(principal string, transitive bool) ([]string, erro
 		}
 		var groups []string
 		for _, gm := range groupMembers {
-			if _, has := unique[gm.group]; !has {
-				groups = append(groups, gm.group)
-				unique[gm.group] = true
+			if _, has := unique[gm.Group]; !has {
+				groups = append(groups, gm.Group)
+				unique[gm.Group] = true
 			}
 		}
 		if transitive {
@@ -176,8 +176,8 @@ func (s *MongoStore) ResourceGrants(resource string) (principals, roles []string
 		return
 	}
 	for i := range grants {
-		principals = append(principals, grants[i].principal)
-		roles = append(roles, grants[i].role)
+		principals = append(principals, grants[i].Principal)
+		roles = append(roles, grants[i].Role)
 	}
 	return
 }
@@ -200,8 +200,8 @@ func (s *MongoStore) PrincipalGrants(principal string, transitive bool) (roles, 
 		return nil, nil, err
 	}
 	for i := range grants {
-		roles = append(roles, grants[i].role)
-		resources = append(resources, grants[i].resource)
+		roles = append(roles, grants[i].Role)
+		resources = append(resources, grants[i].Resource)
 	}
 	return roles, resources, nil
 }
@@ -221,7 +221,7 @@ func (s *MongoStore) RoleGrants(principal, resource string, transitive bool) (ro
 	}
 	err = q.All(&grants)
 	for i := range grants {
-		roles = append(roles, grants[i].role)
+		roles = append(roles, grants[i].Role)
 	}
 	return roles, err
 }

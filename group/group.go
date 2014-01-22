@@ -141,4 +141,6 @@ func (_ serviceResource) Capabilities() PermissionMap {
 
 func (_ serviceResource) URI() string { return AffinityGroupsUri }
 
+var ServiceResource Resource = serviceResource{}
+
 var GroupRoles RoleMap = NewRoleMap(ServiceRole, CreatorRole, OwnerRole, AdminRole, ObserverRole)

@@ -18,11 +18,15 @@
 package main
 
 import (
+	"log"
 	"net/http"
+	"strings"
 
 	"labix.org/v2/mgo"
 	"launchpad.net/gnuflag"
 
+	"launchpad.net/go-affinity"
+	"launchpad.net/go-affinity/group"
 	"launchpad.net/go-affinity/providers/usso"
 	. "launchpad.net/go-affinity/server"
 	"launchpad.net/go-affinity/storage/mongo"
@@ -30,10 +34,13 @@ import (
 
 type serveCmd struct {
 	subCmd
-	addr    string
-	extName string
-	mongo   string
-	dbname  string
+	addr            string
+	extName         string
+	mongo           string
+	dbname          string
+	serviceAdminCsv string
+
+	serviceAdmins []string
 }
 
 func newServeCmd() *serveCmd {
@@ -43,6 +50,8 @@ func newServeCmd() *serveCmd {
 	cmd.flags.StringVar(&cmd.extName, "name", "", "External server hostname")
 	cmd.flags.StringVar(&cmd.mongo, "mongo", "localhost:27017", "MongoDB URL")
 	cmd.flags.StringVar(&cmd.dbname, "database", "affinity", "Mongo database name")
+	cmd.flags.StringVar(&cmd.serviceAdminCsv, "service-admins", "",
+		"Users granted service management role")
 	return cmd
 }
 
@@ -54,6 +63,12 @@ func (c *serveCmd) Main() {
 	if c.extName == "" {
 		Usage(c, "--name is required")
 	}
+
+	c.serviceAdmins = strings.Split(c.serviceAdminCsv, ",")
+	for i := range c.serviceAdmins {
+		c.serviceAdmins[i] = strings.TrimSpace(c.serviceAdmins[i])
+	}
+
 	session, err := mgo.Dial(c.mongo)
 	if err != nil {
 		die(err)
@@ -62,7 +77,22 @@ func (c *serveCmd) Main() {
 	if err != nil {
 		die(err)
 	}
+
 	s := NewServer(store)
+
+	// Grant service role to configured admins
+	for _, serviceAdmin := range c.serviceAdmins {
+		admin := affinity.NewAdmin(store, group.GroupRoles)
+		u, err := affinity.ParseUser(serviceAdmin)
+		if err != nil {
+			die(err)
+		}
+		err = admin.Grant(u, group.ServiceRole, group.ServiceResource)
+		if err != nil {
+			log.Println("Warning:", err)
+		}
+	}
+
 	s.RegisterScheme(usso.NewScheme(c.extName))
 	err = http.ListenAndServe(c.addr, s)
 	die(err)
