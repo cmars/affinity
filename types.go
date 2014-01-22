@@ -90,6 +90,14 @@ func ParseUser(s string) (u User, err error) {
 	return User{Identity{s[0:i], s[i+1:]}}, nil
 }
 
+func MustParseUser(s string) User {
+	u, err := ParseUser(s)
+	if err != nil {
+		panic(err)
+	}
+	return u
+}
+
 // Contains tests if the principal is contained by the group, including
 // subgroups.
 func (g Group) Contains(p Principal) bool {
