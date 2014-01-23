@@ -16,9 +16,10 @@
 */
 
 /*
-affinity supports user identity, user groups, and role-based access
-control on resources. Identity and RBAC features are used by working
-with several key interfaces worthy of a proper definition and introduction.
+Affinity provides user grouping and role-based access controls to Go applications.
+To achieve this, Affinity provides a mechanism for integrating strong user
+authentication and authorization. Identity and RBAC features are accessed through
+several key interfaces.
 
 Principal
 
@@ -55,25 +56,25 @@ It is worth mentioning that some Schemes might support their own concept of user
 
 Permission
 
-[TBD]
+Permissions are fine-grained capabilities or actions which take place in an application. Affinity provides a means to look up whether a given principal has a permission to act on a certain resource. Each permission is given a name identifier unique to the application capability it represents.
+
+Let your application define your permissions. For example, if you were writing a filesystem, you might have permissions defined like: read-file, execute-file, write-file, read-directory, write-directory, etc.
 
 Role
 
-[TBD]
+Roles are a higher-level definition of capabilities. Essentially a Role is a bundle of permissions given a name. Roles should be defined by the "types of access" you wish to grant users and groups on your application's resources.
 
-GroupService
+For example, someone in a Pilot role should have permissions like 'board', 'enter-cabin', 'cockpit-controls' on an "airplane" resource. A Passenger role should be able to 'board', but not 'enter-cabin' or 'cockpit-controls'.
 
-[TBD]
+Resource
 
-HTTP API
+A resource is the object to which access is granted. In Affinity, a Resource is declared by a URI, which will have meaning to the application implementating RBAC.
 
-[TBD]
+Resources also declare the full set of permissions they support. That way, you can't make absurd role grants that don't make sense for the resource object of the grant.
 
-Examples
+Store
 
-I might want to create a group of airline pilots for each airline, and grant permission to "fly-plane" to each pilot group on different airplanes. United pilots can fly United planes, but not JetBlue, or a private jet.
-
-However, the permission of "fly-plane", and the other permissions that go along with the "pilot" role, should be reusable across all these groups of pilots. The pilots are grouped according to their employer, a common association distinct from their role.
+Affinity stores user groupings and role grants in persistent storage. The Store interface defines lower-level primitives which are implemented for different providers, such as MongoDB, in-memory, or others.
 
 */
 package affinity
