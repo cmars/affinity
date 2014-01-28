@@ -46,6 +46,6 @@ type Store interface {
 	// PrincipalGrants returns index-matched slices containing the immediate
 	// or complete, transitive role-resource pairs that apply to the principal.
 	PrincipalGrants(principal string, transitive bool) (roles, resources []string, err error)
-	// RoleGrants returns a slice of the immediate roles granted to a principal on a resource.
+	// RoleGrants returns a slice of the roles granted to a principal on a resource.
 	RoleGrants(principal, resource string, transitive bool) ([]string, error)
 }
