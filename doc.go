@@ -1,5 +1,5 @@
 /*
-   Affinity - Private groups as a service
+   Affinity - Grouping and role-based access controls for authenticated identities.
    Copyright (C) 2014  Canonical, Ltd.
 
    This program is free software: you can redistribute it and/or modify
@@ -16,10 +16,16 @@
 */
 
 /*
-Affinity provides user grouping and role-based access controls to Go applications.
-To achieve this, Affinity provides a mechanism for integrating strong user
-authentication and authorization. Identity and RBAC features are accessed through
-several key interfaces.
+Affinity provides user grouping and role-based access controls (RBAC) for any identity provider
+that defines a small set of authentication primitives.
+
+The examples documented here illustrate basic API usage with a very simple hypothetical message board.
+
+For a more complete example, reference the unit tests, and the source files in package launchpad.net/go-affinity/group package, where Affinity uses its own RBAC to control access to user-group administration.
+
+launchpad.net/go-affinity/server exposes an HTTP API over the group service. The command-line interface in cmd/ is a utility to launch the service and connect to it, using Ubuntu SSO as an identity provider.
+
+Use the following types for working with identity and RBAC in Affinity.
 
 Principal
 
@@ -64,7 +70,7 @@ Role
 
 Roles are a higher-level definition of capabilities. Essentially a Role is a bundle of permissions given a name. Roles should be defined by the "types of access" you wish to grant users and groups on your application's resources.
 
-For example, someone in a Pilot role should have permissions like 'board', 'enter-cabin', 'cockpit-controls' on an "airplane" resource. A Passenger role should be able to 'board', but not 'enter-cabin' or 'cockpit-controls'.
+For example, someone in a Pilot role should have permissions like 'board', 'enter-cabin', 'move-cockpit-controls' on an "airplane" resource. A Passenger role should be able to 'board', but not 'enter-cabin' or 'move-cockpit-controls'.
 
 Resource
 
@@ -72,9 +78,23 @@ A resource is the object to which access is granted. In Affinity, a Resource is 
 
 Resources also declare the full set of permissions they support. That way, you can't make absurd role grants that don't make sense for the resource object of the grant.
 
+Resources do not currently support the concept of hierarchy in Affinity -- they are all flat, and in essence just canonical names to be matched in an access control query.
+
 Store
 
 Affinity stores user groupings and role grants in persistent storage. The Store interface defines lower-level primitives which are implemented for different providers, such as MongoDB, in-memory, or others.
+
+Access
+
+Use Access to connect to storage and check access permissions for a given user/group on a resource.
+
+Admin
+
+Admin extends Access with the capability to grant and revoke user or group roles on resources. Role grants in Affinity are "positive" and additive in nature. Granting a role will cause a permission lookup for the user/group on a resource to match if any granted role contains that permission.
+
+Revoking a role will remove this relationship, so that the lookup no longer matches and access is denied.
+
+It is important to note that when it comes to role grants on groups, there is no way to revoke a role's transitive permissions from a group member. All members of the group will receive the role permission, or none of them will.
 
 */
 package affinity

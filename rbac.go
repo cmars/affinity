@@ -30,12 +30,34 @@ type Permission interface {
 	Name() string
 }
 
+type basicPerm struct {
+	name string
+}
+
+func (bp *basicPerm) Name() string { return bp.name }
+
+// NewPermission defines a new permission identified by a well-known, unique name.
+func NewPermission(name string) Permission { return &basicPerm{name} }
+
 // Resource represents the object of access controls.
 type Resource interface {
 	// Capabilities returns all the possible permissions that are defined for this type of resource.
 	Capabilities() PermissionMap
 	// URI returns the uniform identifier for this resource.
 	URI() string
+}
+
+type basicResource struct {
+	uri          string
+	capabilities PermissionMap
+}
+
+func (br *basicResource) Capabilities() PermissionMap { return br.capabilities }
+
+func (br *basicResource) URI() string { return br.uri }
+
+func NewResource(uri string, capabilities ...Permission) Resource {
+	return &basicResource{uri, NewPermissionMap(capabilities...)}
 }
 
 // Role represents a set of permissions (capabilities, actions) to operate on a resource.
@@ -46,6 +68,30 @@ type Role interface {
 	Name() string
 	// Can tests if the role allows the given permission.
 	Can(p Permission) bool
+}
+
+type basicRole struct {
+	name  string
+	perms PermissionMap
+}
+
+func (br *basicRole) Name() string {
+	return br.name
+}
+
+func (br *basicRole) Capabilities() PermissionMap {
+	return br.perms
+}
+
+func (br *basicRole) Can(p Permission) bool {
+	_, has := br.perms[p.Name()]
+	return has
+}
+
+// NewRole defines a new role identified by a well-known, unique name with access to
+// the specified permissions.
+func NewRole(name string, permissions ...Permission) Role {
+	return &basicRole{name, NewPermissionMap(permissions...)}
 }
 
 // Grant represents a statement of fact that a principal (user, group, identity)
@@ -95,6 +141,15 @@ func (s *Access) Can(pr Principal, pm Permission, r Resource) (bool, error) {
 	roleGrants, err := s.Store.RoleGrants(pr.String(), r.URI(), true)
 	if err != nil {
 		return false, err
+	}
+	// Add scheme wildcard grants
+	if user, is := pr.(User); is && !user.Wildcard() {
+		wildcardGrants, err := s.Store.RoleGrants(
+			User{Identity{user.Scheme, AnyId}}.String(), r.URI(), true)
+		if err != nil {
+			return false, err
+		}
+		roleGrants = append(roleGrants, wildcardGrants...)
 	}
 	for _, roleName := range roleGrants {
 		role, has := s.Roles[roleName]

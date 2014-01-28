@@ -1,0 +1,12 @@
+Refer to the Go package documentation.
+
+0. This file should be in $GOPATH/src/launchpad.net/go-affinity/README.
+If it is not, make it so. Right now go-affinity is not published so
+you can't 'go get' it. That should change soon.
+
+1. godoc -http=:6060
+
+2. Open http://localhost:6060/pkg/launchpad.net/go-affinity
+
+- Casey Marshall <casey.marshall@canonical.com>
+
