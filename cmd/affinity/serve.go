@@ -25,11 +25,11 @@ import (
 	"labix.org/v2/mgo"
 	"launchpad.net/gnuflag"
 
-	"launchpad.net/go-affinity"
-	"launchpad.net/go-affinity/group"
-	"launchpad.net/go-affinity/providers/usso"
-	. "launchpad.net/go-affinity/server"
-	"launchpad.net/go-affinity/storage/mongo"
+	"github.com/cmars/affinity"
+	"github.com/cmars/affinity/group"
+	"github.com/cmars/affinity/providers/usso"
+	. "github.com/cmars/affinity/server"
+	"github.com/cmars/affinity/storage/mongo"
 )
 
 type serveCmd struct {

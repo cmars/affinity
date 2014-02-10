@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	. "launchpad.net/go-affinity"
-	"launchpad.net/go-affinity/storage/mem"
+	. "github.com/cmars/affinity"
+	"github.com/cmars/affinity/storage/mem"
 )
 
 // MessageBoard defines the interface for a message board service.

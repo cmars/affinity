@@ -25,7 +25,7 @@ import (
 	"net/http"
 	"net/url"
 
-	. "launchpad.net/go-affinity"
+	. "github.com/cmars/affinity"
 )
 
 type Client struct {

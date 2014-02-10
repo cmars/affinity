@@ -18,7 +18,7 @@
 package group
 
 import (
-	. "launchpad.net/go-affinity"
+	. "github.com/cmars/affinity"
 )
 
 // AffinityGroupsUri defines a namespace for roles affecting the entire

@@ -24,8 +24,8 @@ import (
 
 	. "launchpad.net/gocheck"
 
-	. "launchpad.net/go-affinity/server"
-	"launchpad.net/go-affinity/storage/mem"
+	. "github.com/cmars/affinity/server"
+	"github.com/cmars/affinity/storage/mem"
 )
 
 func TestServerSuite(t *testing.T) { TestingT(t) }

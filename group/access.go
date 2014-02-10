@@ -20,7 +20,7 @@ package group
 import (
 	"fmt"
 
-	. "launchpad.net/go-affinity"
+	. "github.com/cmars/affinity"
 )
 
 // GroupService provides group administration and queries with access controls.

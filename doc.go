@@ -21,9 +21,9 @@ that defines a small set of authentication primitives.
 
 The examples documented here illustrate basic API usage with a very simple hypothetical message board.
 
-For a more complete example, reference the unit tests, and the source files in package launchpad.net/go-affinity/group package, where Affinity uses its own RBAC to control access to user-group administration.
+For a more complete example, reference the unit tests, and the source files in package github.com/cmars/affinity/group package, where Affinity uses its own RBAC to control access to user-group administration.
 
-launchpad.net/go-affinity/server exposes an HTTP API over the group service. The command-line interface in cmd/ is a utility to launch the service and connect to it, using Ubuntu SSO as an identity provider.
+github.com/cmars/affinity/server exposes an HTTP API over the group service. The command-line interface in cmd/ is a utility to launch the service and connect to it, using Ubuntu SSO as an identity provider.
 
 Use the following types for working with identity and RBAC in Affinity.
 

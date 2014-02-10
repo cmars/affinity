@@ -18,8 +18,8 @@
 package mem
 
 import (
-	. "launchpad.net/go-affinity"
-	"launchpad.net/go-affinity/util"
+	. "github.com/cmars/affinity"
+	"github.com/cmars/affinity/util"
 )
 
 type grant struct {

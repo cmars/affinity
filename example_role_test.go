@@ -3,7 +3,7 @@ package affinity_test
 import (
 	"testing"
 
-	. "launchpad.net/go-affinity"
+	. "github.com/cmars/affinity"
 )
 
 /*

@@ -20,7 +20,7 @@ package testing
 import (
 	. "launchpad.net/gocheck"
 
-	. "launchpad.net/go-affinity"
+	. "github.com/cmars/affinity"
 )
 
 type RbacTests struct {

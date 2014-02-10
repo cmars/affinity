@@ -1,7 +1,7 @@
 package affinity_test
 
 import (
-	. "launchpad.net/go-affinity"
+	. "github.com/cmars/affinity"
 )
 
 var messageBoardLastId int = 0
