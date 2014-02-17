@@ -18,6 +18,7 @@
 package affinity
 
 import (
+	"net/http"
 	"net/url"
 
 	"code.google.com/p/gopass"
@@ -47,6 +48,12 @@ type SchemeAuthorizer interface {
 	Auth(id string) (values url.Values, err error)
 }
 
+// SchemeAuthenticator authenticates user http requests
+type SchemeAuthenticator interface {
+	Authenticate(w http.ResponseWriter, r *http.Request) bool
+	Callback(w http.ResponseWriter, r *http.Request)
+}
+
 type SchemeValidator interface {
 	// Validate checks the authorization parameters are valid. If so, returns the
 	// qualified user ID which created it.
@@ -57,6 +64,9 @@ type SchemeValidator interface {
 // provides a means for those users to prove their identity by authenticating
 // to generate an authorization token for some purpose.
 type Scheme interface {
+	// Authenticator returns the authenticator service for this scheme
+	// implementation.
+	Authenticator() SchemeAuthenticator
 	// Authorizer returns the authorization token service for this scheme
 	// implementation.
 	Authorizer() SchemeAuthorizer

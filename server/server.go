@@ -67,6 +67,27 @@ func (s *Server) RegisterScheme(scheme Scheme) {
 	s.schemes[scheme.Name()] = scheme
 }
 
+// AuthenticateRequestId uses the schemes underlying mechanism to authenticate the id of a user request
+func (s *Server) AuthenticateRequestId(scheme string, w http.ResponseWriter, r *http.Request) (bool, error) {
+
+	sch, ok := s.schemes[scheme]
+	if !ok {
+		return false, fmt.Errorf("Unknown scheme:[%v]", scheme)
+	}
+
+	return sch.Authenticator().Authenticate(w, r), nil
+
+}
+
+func (s *Server) Callback(scheme string, w http.ResponseWriter, r *http.Request) {
+
+	sch, ok := s.schemes[scheme]
+	if ok {
+		sch.Authenticator().Callback(w, r)
+	}
+
+}
+
 func (s *Server) Authenticate(r *http.Request) (user User, err error) {
 	authStr := r.Header.Get("Authorization")
 	if authStr == "" {

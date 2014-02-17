@@ -21,11 +21,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"net/url"
 
 	"launchpad.net/usso"
 
 	. "github.com/cmars/affinity"
+	"github.com/cmars/affinity/providers/common"
 )
 
 type UssoScheme struct {
@@ -43,6 +45,15 @@ func (s *UssoScheme) password() (string, error) {
 		pp = &PasswordPrompter{}
 	}
 	return pp.Password()
+}
+
+func (s *UssoScheme) Callback(w http.ResponseWriter, r *http.Request) {
+	common.Callback(w, r)
+}
+
+func (s *UssoScheme) Authenticate(w http.ResponseWriter, r *http.Request) bool {
+	rv := common.Authenticate(usso.ProductionUbuntuSSOServer.LoginURL(), w, r)
+	return rv
 }
 
 func (s *UssoScheme) Auth(id string) (values url.Values, err error) {
@@ -129,6 +140,8 @@ func (s *UssoScheme) Validate(values url.Values) (id string, err error) {
 }
 
 func (s *UssoScheme) Authorizer() SchemeAuthorizer { return s }
+
+func (s *UssoScheme) Authenticator() SchemeAuthenticator { return s }
 
 func (s *UssoScheme) Validator() SchemeValidator { return s }
 
