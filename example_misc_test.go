@@ -1,7 +1,7 @@
 package affinity_test
 
 import (
-	. "github.com/cmars/affinity"
+	. "github.com/juju/affinity"
 )
 
 var messageBoardLastId int = 0

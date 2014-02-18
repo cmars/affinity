@@ -26,8 +26,8 @@ import (
 
 	"launchpad.net/usso"
 
-	. "github.com/cmars/affinity"
-	"github.com/cmars/affinity/providers/common"
+	. "github.com/juju/affinity"
+	"github.com/juju/affinity/providers/common"
 )
 
 type UssoScheme struct {

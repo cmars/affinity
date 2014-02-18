@@ -25,7 +25,7 @@ import (
 	"net/http"
 	"net/url"
 
-	. "github.com/cmars/affinity"
+	. "github.com/juju/affinity"
 )
 
 type Client struct {

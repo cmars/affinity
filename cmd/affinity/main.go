@@ -98,7 +98,7 @@ func (c *helpCmd) Desc() string { return "Display this help message" }
 
 func (c *helpCmd) Main() {
 	fmt.Fprintln(os.Stderr, `Affinity -- User groups as a service
-https://github.com/cmars/affinity
+https://github.com/juju/affinity
 
 Affinity is a simple HTTP API that users to create and administer
 private groups of authenticated users for any purpose. Groups are

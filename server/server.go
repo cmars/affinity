@@ -27,8 +27,8 @@ import (
 
 	"github.com/gorilla/mux"
 
-	. "github.com/cmars/affinity"
-	"github.com/cmars/affinity/group"
+	. "github.com/juju/affinity"
+	"github.com/juju/affinity/group"
 )
 
 type Response struct {

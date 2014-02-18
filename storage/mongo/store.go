@@ -21,8 +21,8 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 
-	"github.com/cmars/affinity"
-	"github.com/cmars/affinity/util"
+	"github.com/juju/affinity"
+	"github.com/juju/affinity/util"
 )
 
 type grant struct {

@@ -20,7 +20,7 @@ package group
 import (
 	"fmt"
 
-	. "github.com/cmars/affinity"
+	. "github.com/juju/affinity"
 )
 
 // GroupService provides group administration and queries with access controls.
