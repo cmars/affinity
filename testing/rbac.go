@@ -35,37 +35,37 @@ type RbacSuite struct {
 
 type UseThingPerm struct{}
 
-func (p UseThingPerm) Name() string { return "use-thing" }
+func (p UseThingPerm) Perm() string { return "use-thing" }
 
 type EmptyBucketPerm struct{}
 
-func (p EmptyBucketPerm) Name() string { return "empty-bucket" }
+func (p EmptyBucketPerm) Perm() string { return "empty-bucket" }
 
 type FillBucketPerm struct{}
 
-func (p FillBucketPerm) Name() string { return "fill-bucket" }
+func (p FillBucketPerm) Perm() string { return "fill-bucket" }
 
 var FacilitiesCapabilities PermissionMap = NewPermissionMap(EmptyBucketPerm{}, FillBucketPerm{}, UseThingPerm{})
 
 type ControlShipPerm struct{}
 
-func (p ControlShipPerm) Name() string { return "control-ship" }
+func (p ControlShipPerm) Perm() string { return "control-ship" }
 
 type BoardShipPerm struct{}
 
-func (p BoardShipPerm) Name() string { return "board-ship" }
+func (p BoardShipPerm) Perm() string { return "board-ship" }
 
 var SpacecraftCapabilities PermissionMap = NewPermissionMap(ControlShipPerm{}, BoardShipPerm{})
 
 type PerformSurgeryPerm struct{}
 
-func (p PerformSurgeryPerm) Name() string { return "perform-surgery" }
+func (p PerformSurgeryPerm) Perm() string { return "perform-surgery" }
 
 var MedicalCapabilities PermissionMap = NewPermissionMap(PerformSurgeryPerm{})
 
 type FilePaperworkPerm struct{}
 
-func (p FilePaperworkPerm) Name() string { return "file-paperwork" }
+func (p FilePaperworkPerm) Perm() string { return "file-paperwork" }
 
 var BureaucraticCapabilities PermissionMap = NewPermissionMap(FilePaperworkPerm{})
 
@@ -78,12 +78,12 @@ func (r *characterRole) Capabilities() PermissionMap {
 	return r.capabilities
 }
 
-func (r *characterRole) Name() string {
+func (r *characterRole) Role() string {
 	return r.name
 }
 
 func (r *characterRole) Can(do Permission) bool {
-	_, has := r.capabilities[do.Name()]
+	_, has := r.capabilities[do.Perm()]
 	return has
 }
 

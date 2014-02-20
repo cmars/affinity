@@ -39,7 +39,7 @@ func NewGroupService(store Store, asUser User) *GroupService {
 func (s *GroupService) canGroup(principal Principal, perm Permission, groupId string) error {
 	if ok, err := s.Can(principal, perm, groupResource(groupId)); !ok {
 		return fmt.Errorf("%s has no permission to %s on group %s", principal.String(),
-			perm.Name(), groupId)
+			perm.Perm(), groupId)
 	} else {
 		return err
 	}
@@ -48,7 +48,7 @@ func (s *GroupService) canGroup(principal Principal, perm Permission, groupId st
 // canService tests if a user or group has a specific permission on this service.
 func (s *GroupService) canService(principal Principal, perm Permission) error {
 	if ok, err := s.Can(principal, perm, serviceResource{}); !ok {
-		return fmt.Errorf("%s has no permission to %s on service", principal.String(), perm.Name())
+		return fmt.Errorf("%s has no permission to %s on service", principal.String(), perm.Perm())
 	} else {
 		return err
 	}

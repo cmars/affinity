@@ -28,47 +28,47 @@ const AffinityGroupsUri = "affinity-group-service:"
 // AddGroupPerm is permission on this service to add a group.
 type AddGroupPerm struct{}
 
-func (p AddGroupPerm) Name() string { return "add-group" }
+func (p AddGroupPerm) Perm() string { return "add-group" }
 
 // RemoveGroupPerm is permission to remove a group.
 type RemoveGroupPerm struct{}
 
-func (p RemoveGroupPerm) Name() string { return "remove-group" }
+func (p RemoveGroupPerm) Perm() string { return "remove-group" }
 
 // AddMemberPerm is permission to add a member to a group.
 type AddMemberPerm struct{}
 
-func (p AddMemberPerm) Name() string { return "add-member" }
+func (p AddMemberPerm) Perm() string { return "add-member" }
 
 // RemoveMemberPerm is permission to remove a member from a group.
 type RemoveMemberPerm struct{}
 
-func (p RemoveMemberPerm) Name() string { return "remove-member" }
+func (p RemoveMemberPerm) Perm() string { return "remove-member" }
 
 // CheckMemberPerm is permission to check membership on a group.
 type CheckMemberPerm struct{}
 
-func (p CheckMemberPerm) Name() string { return "check-member" }
+func (p CheckMemberPerm) Perm() string { return "check-member" }
 
 // GrantOnGroupPerm is permission to grant permissions on a group.
 type GrantOnGroupPerm struct{}
 
-func (p GrantOnGroupPerm) Name() string { return "grant-on-group" }
+func (p GrantOnGroupPerm) Perm() string { return "grant-on-group" }
 
 // RevokeOnGroupPerm is permission to revoke permissions on a group.
 type RevokeOnGroupPerm struct{}
 
-func (p RevokeOnGroupPerm) Name() string { return "revoke-on-group" }
+func (p RevokeOnGroupPerm) Perm() string { return "revoke-on-group" }
 
 // GrantOnServicePerm is permission to grant permissions on this service.
 type GrantOnServicePerm struct{}
 
-func (p GrantOnServicePerm) Name() string { return "grant-on-service" }
+func (p GrantOnServicePerm) Perm() string { return "grant-on-service" }
 
 // RevokeOnServicePerm is permission to revoke permissions on this service.
 type RevokeOnServicePerm struct{}
 
-func (p RevokeOnServicePerm) Name() string { return "revoke-on-service" }
+func (p RevokeOnServicePerm) Perm() string { return "revoke-on-service" }
 
 var creatorCapabilities PermissionMap = NewPermissionMap(
 	AddGroupPerm{},
@@ -103,12 +103,12 @@ func (gr *groupRole) Capabilities() PermissionMap {
 	return gr.capabilities
 }
 
-func (gr *groupRole) Name() string {
+func (gr *groupRole) Role() string {
 	return gr.name
 }
 
 func (gr *groupRole) Can(do Permission) bool {
-	_, has := gr.capabilities[do.Name()]
+	_, has := gr.capabilities[do.Perm()]
 	return has
 }
 
