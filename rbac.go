@@ -45,6 +45,8 @@ type Resource interface {
 	Capabilities() PermissionMap
 	// URI returns the uniform identifier for this resource.
 	URI() string
+	// ParentOf returns the resource which contains this one, or nil.
+	ParentOf() Resource
 }
 
 type basicResource struct {
@@ -55,6 +57,8 @@ type basicResource struct {
 func (br *basicResource) Capabilities() PermissionMap { return br.capabilities }
 
 func (br *basicResource) URI() string { return br.uri }
+
+func (br *basicResource) ParentOf() Resource { return nil }
 
 func NewResource(uri string, capabilities ...Permission) Resource {
 	return &basicResource{uri, NewPermissionMap(capabilities...)}
@@ -136,8 +140,29 @@ func NewAccess(store Store, roles RoleMap) *Access {
 	return &Access{store, roles}
 }
 
-// Can tests if the princial has a permission on a given resource.
+// Can tests if the princial has a permission on a given resource, or its container.
 func (s *Access) Can(pr Principal, pm Permission, r Resource) (bool, error) {
+	// Does this resource support the capability being requested?
+	if _, supported := r.Capabilities()[pm.Name()]; !supported {
+		return false, nil
+	}
+
+	var result bool
+	var err error
+	for r != nil {
+		result, err = s.can(pr, pm, r)
+		if err != nil {
+			return false, err
+		}
+		if result {
+			return true, nil
+		}
+		r = r.ParentOf()
+	}
+	return result, err
+}
+
+func (s *Access) can(pr Principal, pm Permission, r Resource) (bool, error) {
 	roleGrants, err := s.Store.RoleGrants(pr.String(), r.URI(), true)
 	if err != nil {
 		return false, err

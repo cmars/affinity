@@ -33,6 +33,10 @@ type RbacSuite struct {
 	*RbacTests
 }
 
+type UseThingPerm struct{}
+
+func (p UseThingPerm) Name() string { return "use-thing" }
+
 type EmptyBucketPerm struct{}
 
 func (p EmptyBucketPerm) Name() string { return "empty-bucket" }
@@ -41,7 +45,7 @@ type FillBucketPerm struct{}
 
 func (p FillBucketPerm) Name() string { return "fill-bucket" }
 
-var FacilitiesCapabilities PermissionMap = NewPermissionMap(EmptyBucketPerm{}, FillBucketPerm{})
+var FacilitiesCapabilities PermissionMap = NewPermissionMap(EmptyBucketPerm{}, FillBucketPerm{}, UseThingPerm{})
 
 type ControlShipPerm struct{}
 
@@ -83,6 +87,10 @@ func (r *characterRole) Can(do Permission) bool {
 	return has
 }
 
+var UserRole *characterRole = &characterRole{"user", NewPermissionMap(
+	UseThingPerm{},
+)}
+
 var JanitorRole *characterRole = &characterRole{"janitor", NewPermissionMap(
 	EmptyBucketPerm{}, FillBucketPerm{},
 )}
@@ -109,27 +117,40 @@ var FuturamaRoles RoleMap = NewRoleMap(
 	PassengerRole,
 	BureaucratRole,
 	DoctorRole,
+	UserRole,
 )
 
-type facilitiesResource string
+type facilitiesResource struct {
+	parent *facilitiesResource
+	name   string
+}
 
 func (_ facilitiesResource) Capabilities() PermissionMap { return FacilitiesCapabilities }
-func (r facilitiesResource) URI() string                 { return string(r) }
+func (r facilitiesResource) URI() string                 { return r.name }
+func (r facilitiesResource) ParentOf() Resource {
+	if r.parent == nil {
+		return nil
+	}
+	return *r.parent
+}
 
 type spacecraftResource string
 
 func (_ spacecraftResource) Capabilities() PermissionMap { return SpacecraftCapabilities }
 func (r spacecraftResource) URI() string                 { return string(r) }
+func (_ spacecraftResource) ParentOf() Resource          { return nil }
 
 type medicalResource string
 
 func (_ medicalResource) Capabilities() PermissionMap { return MedicalCapabilities }
 func (r medicalResource) URI() string                 { return string(r) }
+func (_ medicalResource) ParentOf() Resource          { return nil }
 
 type bureaucraticResource string
 
 func (_ bureaucraticResource) Capabilities() PermissionMap { return BureaucraticCapabilities }
 func (r bureaucraticResource) URI() string                 { return string(r) }
+func (_ bureaucraticResource) ParentOf() Resource          { return nil }
 
 func NewRbacSuite(s Store) *RbacSuite {
 	return &RbacSuite{
@@ -141,11 +162,12 @@ func NewRbacSuite(s Store) *RbacSuite {
 }
 
 func (s *RbacSuite) SetUp(c *C) {
+	building := facilitiesResource{name: "facilities:building"}
 	for _, grant := range futuramaGrants {
 		var rc Resource
 		switch grant.resource {
 		case "facilities:bucket":
-			rc = facilitiesResource(grant.resource)
+			rc = facilitiesResource{name: grant.resource, parent: &building}
 		case "bureaucracy:forms":
 			rc = bureaucraticResource(grant.resource)
 		case "planet-express:crew":
@@ -169,31 +191,31 @@ func (s *RbacSuite) TestScruffyAcls(c *C) {
 	can, _ = s.Access.Can(
 		MustParseUser("test:scruffy"),
 		EmptyBucketPerm{},
-		facilitiesResource("facilities:bucket"))
+		facilitiesResource{name: "facilities:bucket"})
 	c.Assert(can, Equals, true)
 	// Scruffy should not be able to empty some other bucket we haven't granted the role on
 	can, _ = s.Access.Can(
 		MustParseUser("test:scruffy"),
 		EmptyBucketPerm{},
-		facilitiesResource("walrus:bucket"))
+		facilitiesResource{name: "walrus:bucket"})
 	c.Assert(can, Equals, false)
 	// Scruffy should not be able to empty the ship like it was a bucket
 	can, _ = s.Access.Can(
 		MustParseUser("test:scruffy"),
 		EmptyBucketPerm{},
-		facilitiesResource("spacecraft:ship"))
+		facilitiesResource{name: "spacecraft:ship"})
 	c.Assert(can, Equals, false)
 	// Scruffy should not be able to board the ship. Sorry Scruffy, it's canon.
 	can, _ = s.Access.Can(
 		MustParseUser("test:scruffy"),
 		BoardShipPerm{},
-		facilitiesResource("spacecraft:ship"))
+		spacecraftResource("spacecraft:ship"))
 	c.Assert(can, Equals, false)
 	// Crew member should not be able to wield the mighty bucket
 	can, _ = s.Access.Can(
 		MustParseUser("test:fry"),
 		FillBucketPerm{},
-		facilitiesResource("facilities:bucket"))
+		facilitiesResource{name: "facilities:bucket"})
 }
 
 func (s *RbacSuite) TestSpacecraftAcls(c *C) {
@@ -202,24 +224,39 @@ func (s *RbacSuite) TestSpacecraftAcls(c *C) {
 	can, _ = s.Access.Can(
 		MustParseUser("test:leela"),
 		ControlShipPerm{},
-		facilitiesResource("spacecraft:ship"))
+		spacecraftResource("spacecraft:ship"))
 	c.Assert(can, Equals, true)
 	// Leela should be able to board the ship.
 	can, _ = s.Access.Can(
 		MustParseUser("test:leela"),
 		BoardShipPerm{},
-		facilitiesResource("spacecraft:ship"))
+		spacecraftResource("spacecraft:ship"))
 	c.Assert(can, Equals, true)
 	// Fry should be able to fly the ship.
 	can, _ = s.Access.Can(
 		MustParseUser("test:fry"),
 		ControlShipPerm{},
-		facilitiesResource("spacecraft:ship"))
+		spacecraftResource("spacecraft:ship"))
 	c.Assert(can, Equals, false)
 	// Fry should be able to board the ship.
 	can, _ = s.Access.Can(
 		MustParseUser("test:fry"),
 		BoardShipPerm{},
-		facilitiesResource("spacecraft:ship"))
+		spacecraftResource("spacecraft:ship"))
+	c.Assert(can, Equals, true)
+}
+
+func (s *RbacSuite) TestResourceParentGrant(c *C) {
+	building := facilitiesResource{name: "planet-express-hq"}
+	vendingMachine := facilitiesResource{name: "vending-machine", parent: &building}
+	bender := MustParseUser("test:bender")
+	s.Admin.Grant(bender, UserRole, building)
+
+	can, err := s.Access.Can(bender, UseThingPerm{}, building)
+	c.Assert(err, IsNil)
+	c.Assert(can, Equals, true)
+
+	can, err = s.Access.Can(bender, UseThingPerm{}, vendingMachine)
+	c.Assert(err, IsNil)
 	c.Assert(can, Equals, true)
 }

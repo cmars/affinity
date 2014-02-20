@@ -70,10 +70,6 @@ type RevokeOnServicePerm struct{}
 
 func (p RevokeOnServicePerm) Name() string { return "revoke-on-service" }
 
-var serviceCapabilities PermissionMap = NewPermissionMap(
-	GrantOnServicePerm{}, RevokeOnServicePerm{}, AddGroupPerm{},
-)
-
 var creatorCapabilities PermissionMap = NewPermissionMap(
 	AddGroupPerm{},
 )
@@ -92,6 +88,10 @@ var adminCapabilities PermissionMap = NewPermissionMap(
 
 var observerCapabilities PermissionMap = NewPermissionMap(
 	CheckMemberPerm{},
+)
+
+var serviceCapabilities PermissionMap = NewPermissionMap(
+	GrantOnServicePerm{}, RevokeOnServicePerm{}, AddGroupPerm{},
 )
 
 type groupRole struct {
@@ -133,6 +133,8 @@ func (_ groupResource) Capabilities() PermissionMap { return ownerCapabilities }
 
 func (gr groupResource) URI() string { return string(gr) }
 
+func (gr groupResource) ParentOf() Resource { return ServiceResource }
+
 type serviceResource struct{}
 
 func (_ serviceResource) Capabilities() PermissionMap {
@@ -140,6 +142,8 @@ func (_ serviceResource) Capabilities() PermissionMap {
 }
 
 func (_ serviceResource) URI() string { return AffinityGroupsUri }
+
+func (_ serviceResource) ParentOf() Resource { return nil }
 
 var ServiceResource Resource = serviceResource{}
 
