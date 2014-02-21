@@ -48,12 +48,17 @@ type SchemeAuthorizer interface {
 	Auth(id string) (values url.Values, err error)
 }
 
-// SchemeAuthenticator authenticates user http requests
+// VerifyHandler is a callback function which receives the user's identity
+// during a SchemeAuthenticator handshake.
+type VerifyHandler func(map[string]string)
+
+// SchemeAuthenticator authenticates handshake identity protocols such as OpenID or OAuth 2.
 type SchemeAuthenticator interface {
 	Authenticate(w http.ResponseWriter, r *http.Request) bool
-	Callback(w http.ResponseWriter, r *http.Request)
+	Callback(w http.ResponseWriter, r *http.Request) (User, url.Values, error)
 }
 
+// SchemeValidator validates an authorization token obtained by SchemeAuthorizer.
 type SchemeValidator interface {
 	// Validate checks the authorization parameters are valid. If so, returns the
 	// qualified user ID which created it.

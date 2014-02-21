@@ -47,12 +47,27 @@ func (s *UssoScheme) password() (string, error) {
 	return pp.Password()
 }
 
-func (s *UssoScheme) Callback(w http.ResponseWriter, r *http.Request) {
-	common.Callback(w, r)
+func (s *UssoScheme) Callback(w http.ResponseWriter, r *http.Request) (User, url.Values, error) {
+	var user User
+	values := make(map[string][]string)
+	err := fmt.Errorf("Failed to authenticate")
+	common.Callback(w, r, func(id map[string]string) {
+		user = User{Identity{Scheme: s.Name(), Id: id["email"]}}
+		for k, v := range id {
+			values[k] = []string{v}
+		}
+		err = nil
+	})
+	return user, values, err
 }
 
 func (s *UssoScheme) Authenticate(w http.ResponseWriter, r *http.Request) bool {
-	rv := common.Authenticate(usso.ProductionUbuntuSSOServer.LoginURL(), w, r)
+	rv, err := common.Authenticate(usso.ProductionUbuntuSSOServer.LoginURL(), w, r)
+	if err != nil {
+		http.Error(w, "Server error", http.StatusInternalServerError)
+		log.Println(err)
+		return false
+	}
 	return rv
 }
 
