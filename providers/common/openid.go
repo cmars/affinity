@@ -22,13 +22,15 @@ package common
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 
 	"code.google.com/p/go-uuid/uuid"
 	"github.com/kushaldas/openid.go/src/openid"
+
+	"github.com/juju/affinity"
 )
 
 var (
@@ -37,42 +39,45 @@ var (
 	urlStore       = make(map[string]string)
 )
 
-func Callback(w http.ResponseWriter, r *http.Request) {
+func Callback(w http.ResponseWriter, r *http.Request, onVerify affinity.VerifyHandler) {
 	// verify the response
-	fullURL := fmt.Sprintf("http://%v%v", r.Host, r.URL.String())
-	_, err := openid.Verify(fullURL, discoveryCache, nonceStore)
-
+	fullURL := fmt.Sprintf("%v://%v%v", r.URL.Scheme, r.Host, r.URL.String())
+	id, err := openid.Verify(fullURL, discoveryCache, nonceStore)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 	}
 
 	// verified then find the original stored url and redirect the use back to their original request
-	values, err := url.ParseQuery(r.URL.String())
+	values, err := url.ParseQuery(r.URL.RawQuery)
 	if err != nil {
-		http.Error(w, "Server error", http.StatusInternalServerError)
-		return
-	}
-	returnTo, ok := values["openid.return_to"]
-
-	if !ok {
+		log.Println("Failed to parse URL query string:", r.URL)
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		return
 	}
 
-	// the url will be in the form http://<server>:<port>/openidcallback/cbuuid=<uuid>
-	// so do the cheap thing and split on =
-	splitData := strings.Split(returnTo[0], "=")
-
-	if len(splitData) < 2 {
+	returnTo := values.Get("openid.return_to")
+	if returnTo == "" {
+		log.Println("openid.return_to not set in callback: ", values)
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		return
 	}
 
-	cbuuid := splitData[len(splitData)-1]
+	cbuuid := values.Get("cbuuid")
+	if cbuuid == "" {
+		log.Println("cbuuid not set in callback: ", values)
+		http.Error(w, "Server error", http.StatusInternalServerError)
+		return
+	}
+
 	originalUrl, ok := urlStore[cbuuid]
 	if !ok {
+		log.Println("cbuuid", cbuuid, "not found in local store")
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		return
+	}
+
+	if onVerify != nil {
+		onVerify(id)
 	}
 
 	delete(urlStore, cbuuid)
@@ -89,36 +94,31 @@ func Callback(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &cookie)
 
 	http.Redirect(w, r, originalUrl, http.StatusSeeOther)
-
 }
 
-func Authenticate(authorityURL string, w http.ResponseWriter, r *http.Request) bool {
+func Authenticate(authorityURL string, w http.ResponseWriter, r *http.Request) (bool, error) {
 
 	// check for cookie holding flag
 	if washed(r.Cookies()) {
-		return true
+		return true, nil
 	}
 
 	// not present. redirect to authority for authentication
 	cbuuid := uuid.NewRandom()
 
 	// store the original user requested url
-	originalUrl := fmt.Sprintf("http://%v%v", r.Host, r.URL.String())
+	originalUrl := fmt.Sprintf("%v://%v%v", r.URL.Scheme, r.Host, r.URL.String())
 	urlStore[cbuuid.String()] = originalUrl
 
 	// now redirect to the authority
-	fullURL := fmt.Sprintf("http://%v%v/cbuuid=%v", r.Host, "/openidcallback", cbuuid)
+	fullURL := fmt.Sprintf("%v://%v%v?cbuuid=%v", r.URL.Scheme, r.Host, "/openidcallback", cbuuid)
 	redirectUrl, err := openid.RedirectUrl(authorityURL, fullURL, "")
 
 	if err == nil {
 		http.Redirect(w, r, redirectUrl, http.StatusSeeOther)
-		return true
-	} else {
-		http.Error(w, "Server error", http.StatusInternalServerError)
-		return false
+		return true, nil
 	}
-
-	return true
+	return false, err
 }
 
 // washed checks for and returns the washed cookie value, defaulting to false.
