@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	. "github.com/cmars/affinity"
-	"github.com/cmars/affinity/storage/mem"
+	. "github.com/juju/affinity"
+	"github.com/juju/affinity/storage/mem"
 )
 
 // MessageBoard defines the interface for a message board service.

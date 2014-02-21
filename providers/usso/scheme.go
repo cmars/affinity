@@ -3,15 +3,15 @@
    Copyright (C) 2014  Canonical, Ltd.
 
    This program is free software: you can redistribute it and/or modify
-   it under the terms of the GNU Affero General Public License as published by
+   it under the terms of the GNU Library General Public License as published by
    the Free Software Foundation, version 3.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU Affero General Public License for more details.
+   GNU Library General Public License for more details.
 
-   You should have received a copy of the GNU Affero General Public License
+   You should have received a copy of the GNU Library General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
@@ -26,8 +26,8 @@ import (
 
 	"launchpad.net/usso"
 
-	. "github.com/cmars/affinity"
-	"github.com/cmars/affinity/providers/common"
+	. "github.com/juju/affinity"
+	"github.com/juju/affinity/providers/common"
 )
 
 type UssoScheme struct {
@@ -47,12 +47,27 @@ func (s *UssoScheme) password() (string, error) {
 	return pp.Password()
 }
 
-func (s *UssoScheme) Callback(w http.ResponseWriter, r *http.Request) {
-	common.Callback(w, r)
+func (s *UssoScheme) Callback(w http.ResponseWriter, r *http.Request) (User, url.Values, error) {
+	var user User
+	values := make(map[string][]string)
+	err := fmt.Errorf("Failed to authenticate")
+	common.Callback(w, r, func(id map[string]string) {
+		user = User{Identity{Scheme: s.Name(), Id: id["email"]}}
+		for k, v := range id {
+			values[k] = []string{v}
+		}
+		err = nil
+	})
+	return user, values, err
 }
 
 func (s *UssoScheme) Authenticate(w http.ResponseWriter, r *http.Request) bool {
-	rv := common.Authenticate(usso.ProductionUbuntuSSOServer.LoginURL(), w, r)
+	rv, err := common.Authenticate(usso.ProductionUbuntuSSOServer.LoginURL(), w, r)
+	if err != nil {
+		http.Error(w, "Server error", http.StatusInternalServerError)
+		log.Println(err)
+		return false
+	}
 	return rv
 }
 

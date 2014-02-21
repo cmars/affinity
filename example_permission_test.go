@@ -3,7 +3,7 @@ package affinity_test
 import (
 	"testing"
 
-	. "github.com/cmars/affinity"
+	. "github.com/juju/affinity"
 )
 
 /*

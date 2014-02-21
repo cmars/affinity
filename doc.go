@@ -3,15 +3,15 @@
    Copyright (C) 2014  Canonical, Ltd.
 
    This program is free software: you can redistribute it and/or modify
-   it under the terms of the GNU Affero General Public License as published by
+   it under the terms of the GNU Library General Public License as published by
    the Free Software Foundation, version 3.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU Affero General Public License for more details.
+   GNU Library General Public License for more details.
 
-   You should have received a copy of the GNU Affero General Public License
+   You should have received a copy of the GNU Library General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
@@ -21,9 +21,9 @@ that defines a small set of authentication primitives.
 
 The examples documented here illustrate basic API usage with a very simple hypothetical message board.
 
-For a more complete example, reference the unit tests, and the source files in package github.com/cmars/affinity/group package, where Affinity uses its own RBAC to control access to user-group administration.
+For a more complete example, reference the unit tests, and the source files in package github.com/juju/affinity/group package, where Affinity uses its own RBAC to control access to user-group administration.
 
-github.com/cmars/affinity/server exposes an HTTP API over the group service. The command-line interface in cmd/ is a utility to launch the service and connect to it, using Ubuntu SSO as an identity provider.
+github.com/juju/affinity/server exposes an HTTP API over the group service. The command-line interface in cmd/ is a utility to launch the service and connect to it, using Ubuntu SSO as an identity provider.
 
 Use the following types for working with identity and RBAC in Affinity.
 

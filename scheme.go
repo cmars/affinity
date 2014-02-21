@@ -3,15 +3,15 @@
    Copyright (C) 2014  Canonical, Ltd.
 
    This program is free software: you can redistribute it and/or modify
-   it under the terms of the GNU Affero General Public License as published by
+   it under the terms of the GNU Library General Public License as published by
    the Free Software Foundation, version 3.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU Affero General Public License for more details.
+   GNU Library General Public License for more details.
 
-   You should have received a copy of the GNU Affero General Public License
+   You should have received a copy of the GNU Library General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
@@ -48,12 +48,17 @@ type SchemeAuthorizer interface {
 	Auth(id string) (values url.Values, err error)
 }
 
-// SchemeAuthenticator authenticates user http requests
+// VerifyHandler is a callback function which receives the user's identity
+// during a SchemeAuthenticator handshake.
+type VerifyHandler func(map[string]string)
+
+// SchemeAuthenticator authenticates handshake identity protocols such as OpenID or OAuth 2.
 type SchemeAuthenticator interface {
 	Authenticate(w http.ResponseWriter, r *http.Request) bool
-	Callback(w http.ResponseWriter, r *http.Request)
+	Callback(w http.ResponseWriter, r *http.Request) (User, url.Values, error)
 }
 
+// SchemeValidator validates an authorization token obtained by SchemeAuthorizer.
 type SchemeValidator interface {
 	// Validate checks the authorization parameters are valid. If so, returns the
 	// qualified user ID which created it.

@@ -3,15 +3,15 @@
    Copyright (C) 2014  Canonical, Ltd.
 
    This program is free software: you can redistribute it and/or modify
-   it under the terms of the GNU Affero General Public License as published by
+   it under the terms of the GNU Library General Public License as published by
    the Free Software Foundation, version 3.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU Affero General Public License for more details.
+   GNU Library General Public License for more details.
 
-   You should have received a copy of the GNU Affero General Public License
+   You should have received a copy of the GNU Library General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
@@ -27,14 +27,14 @@ var ErrAlreadyGranted error = fmt.Errorf("Already granted")
 
 // Permission represents a granular capability that can be performed on a resource.
 type Permission interface {
-	Name() string
+	Perm() string
 }
 
 type basicPerm struct {
 	name string
 }
 
-func (bp *basicPerm) Name() string { return bp.name }
+func (bp *basicPerm) Perm() string { return bp.name }
 
 // NewPermission defines a new permission identified by a well-known, unique name.
 func NewPermission(name string) Permission { return &basicPerm{name} }
@@ -45,6 +45,8 @@ type Resource interface {
 	Capabilities() PermissionMap
 	// URI returns the uniform identifier for this resource.
 	URI() string
+	// ParentOf returns the resource which contains this one, or nil.
+	ParentOf() Resource
 }
 
 type basicResource struct {
@@ -56,6 +58,8 @@ func (br *basicResource) Capabilities() PermissionMap { return br.capabilities }
 
 func (br *basicResource) URI() string { return br.uri }
 
+func (br *basicResource) ParentOf() Resource { return nil }
+
 func NewResource(uri string, capabilities ...Permission) Resource {
 	return &basicResource{uri, NewPermissionMap(capabilities...)}
 }
@@ -64,8 +68,8 @@ func NewResource(uri string, capabilities ...Permission) Resource {
 type Role interface {
 	// Permissions that have been relegated to this role.
 	Capabilities() PermissionMap
-	// Name returns the locally distinguished name for this role.
-	Name() string
+	// Role returns the locally distinguished name for this role.
+	Role() string
 	// Can tests if the role allows the given permission.
 	Can(p Permission) bool
 }
@@ -75,7 +79,7 @@ type basicRole struct {
 	perms PermissionMap
 }
 
-func (br *basicRole) Name() string {
+func (br *basicRole) Role() string {
 	return br.name
 }
 
@@ -84,7 +88,7 @@ func (br *basicRole) Capabilities() PermissionMap {
 }
 
 func (br *basicRole) Can(p Permission) bool {
-	_, has := br.perms[p.Name()]
+	_, has := br.perms[p.Perm()]
 	return has
 }
 
@@ -110,7 +114,7 @@ type RoleMap map[string]Role
 func NewRoleMap(roles ...Role) RoleMap {
 	roleMap := make(RoleMap)
 	for _, role := range roles {
-		roleMap[role.Name()] = role
+		roleMap[role.Role()] = role
 	}
 	return roleMap
 }
@@ -120,7 +124,7 @@ type PermissionMap map[string]Permission
 func NewPermissionMap(permissions ...Permission) PermissionMap {
 	permissionMap := make(PermissionMap)
 	for _, permission := range permissions {
-		permissionMap[permission.Name()] = permission
+		permissionMap[permission.Perm()] = permission
 	}
 	return permissionMap
 }
@@ -136,8 +140,50 @@ func NewAccess(store Store, roles RoleMap) *Access {
 	return &Access{store, roles}
 }
 
-// Can tests if the princial has a permission on a given resource.
+// HasGrant tests if the principal has been granted a role on a given resource or its container.
+func (s *Access) HasGrant(pr Principal, ro Role, r Resource) (bool, error) {
+	var result bool
+	var err error
+	for r != nil {
+		result, err = s.matchRole(pr, r, func(_ Role) bool {
+			return true
+		})
+		if err != nil {
+			return false, err
+		}
+		if result {
+			return true, nil
+		}
+		r = r.ParentOf()
+	}
+	return result, err
+}
+
+// Can tests if the principal's granted roles provide a permission on a given resource or its container.
 func (s *Access) Can(pr Principal, pm Permission, r Resource) (bool, error) {
+	// Does this resource support the capability being requested?
+	if _, supported := r.Capabilities()[pm.Perm()]; !supported {
+		return false, nil
+	}
+
+	var result bool
+	var err error
+	for r != nil {
+		result, err = s.matchRole(pr, r, func(role Role) bool {
+			return role.Can(pm)
+		})
+		if err != nil {
+			return false, err
+		}
+		if result {
+			return true, nil
+		}
+		r = r.ParentOf()
+	}
+	return result, err
+}
+
+func (s *Access) matchRole(pr Principal, r Resource, matchFn func(Role) bool) (bool, error) {
 	roleGrants, err := s.Store.RoleGrants(pr.String(), r.URI(), true)
 	if err != nil {
 		return false, err
@@ -156,7 +202,7 @@ func (s *Access) Can(pr Principal, pm Permission, r Resource) (bool, error) {
 		if !has {
 			return false, fmt.Errorf("Role %s not supported", roleName)
 		}
-		if role.Can(pm) {
+		if matchFn(role) {
 			return true, nil
 		}
 	}
@@ -175,18 +221,18 @@ func NewAdmin(store Store, roles RoleMap) *Admin {
 
 // Grant allows a principal permissions to act upon a given resource.
 func (s *Admin) Grant(pr Principal, ro Role, rs Resource) error {
-	can, err := s.Can(pr, ro, rs)
+	can, err := s.HasGrant(pr, ro, rs)
 	if err != nil {
 		return err
 	}
 	if can {
 		return fmt.Errorf("Role %s already effectively granted to %s on %s",
-			ro.Name(), pr.String(), rs.URI())
+			ro.Role(), pr.String(), rs.URI())
 	}
-	return s.Store.InsertGrant(pr.String(), ro.Name(), rs.URI())
+	return s.Store.InsertGrant(pr.String(), ro.Role(), rs.URI())
 }
 
 // Revoke removes a prior grant of permissions to a principal on a resource.
 func (s *Admin) Revoke(pr Principal, ro Role, rs Resource) error {
-	return s.Store.RemoveGrant(pr.String(), ro.Name(), rs.URI())
+	return s.Store.RemoveGrant(pr.String(), ro.Role(), rs.URI())
 }

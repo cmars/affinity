@@ -4,4 +4,5 @@ github.com/gorilla/mux	git	9ede152210fa25c1377d33e867cb828c19316445
 labix.org/v2/mgo	bzr	gustavo@niemeyer.net-20131118213720-aralgr4ienh0gdyq	248
 launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20121003093437-zcyyw0lpvj2nifpk	12
 launchpad.net/gocheck	bzr	gustavo@niemeyer.net-20130302024745-6ikofwq2c03h7giu	85
-launchpad.net/usso	bzr	vincenzo.di.somma@canonical.com-20131031173339-p1iln6ejf158f3t0	30
+launchpad.net/juju-core	bzr	tarmac-20140219135723-ldv43e0o1e1qgiif	2341
+launchpad.net/usso	bzr	andrew.w.deane@gmail.com-20140211111026-bpus6asoq6zq58nx	33

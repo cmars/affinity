@@ -7,8 +7,8 @@ import (
 	. "launchpad.net/gocheck"
 	juju_testing "launchpad.net/juju-core/testing"
 
-	"github.com/cmars/affinity/storage/mongo"
-	testing "github.com/cmars/affinity/testing"
+	"github.com/juju/affinity/storage/mongo"
+	testing "github.com/juju/affinity/testing"
 )
 
 type MongoSuite struct {
