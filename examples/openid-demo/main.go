@@ -46,7 +46,7 @@ func main() {
 
 	demoContext := DemoHandler{
 		Store:       rbacStore,
-		Scheme:      usso.NewScheme("localhost"),
+		Scheme:      usso.NewOpenIdWeb("http", "openid-demo@localhost"),
 		CurrentUser: affinity.User{},
 	}
 
@@ -72,6 +72,7 @@ func (h HomeHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	p := make(map[string]string)
 	p["user"] = h.CurrentUser.Id
+	log.Println("User details from OpenID authentication:", h.CurrentDetails)
 	if t, err := template.ParseFiles(dataDir + "index.html"); err == nil {
 		t.Execute(w, p)
 	} else {
@@ -100,4 +101,5 @@ func (h CallbackHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		log.Println("OpenID callback error:", err)
 	}
+	log.Println("User details from OpenID authentication:", h.CurrentDetails)
 }

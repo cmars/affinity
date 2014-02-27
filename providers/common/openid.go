@@ -21,6 +21,7 @@ package common
 // This file contains all of the common openid functionality
 
 import (
+	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
@@ -33,18 +34,32 @@ import (
 	"github.com/juju/affinity"
 )
 
-var (
-	nonceStore     = &openid.SimpleNonceStore{Store: make(map[string][]*openid.Nonce)}
-	discoveryCache = &openid.SimpleDiscoveryCache{}
-	urlStore       = make(map[string]string)
-)
+type OpenID struct {
+	nonceStore     *openid.SimpleNonceStore
+	discoveryCache *openid.SimpleDiscoveryCache
+	urlStore       map[string]string
+	scheme         string
+	realm          string
+}
 
-func Callback(w http.ResponseWriter, r *http.Request, onVerify affinity.VerifyHandler) {
+func NewSimpleOpenID(scheme string, realm string) *OpenID {
+	return &OpenID{
+		nonceStore:     &openid.SimpleNonceStore{Store: make(map[string][]*openid.Nonce)},
+		discoveryCache: &openid.SimpleDiscoveryCache{},
+		urlStore:       make(map[string]string), // TODO: needs to expire handshakes
+		scheme:         scheme,
+		realm:          realm,
+	}
+}
+
+func (oid *OpenID) Callback(w http.ResponseWriter, r *http.Request, onVerify affinity.VerifyHandler) {
 	// verify the response
-	fullURL := fmt.Sprintf("%v://%v%v", r.URL.Scheme, r.Host, r.URL.String())
-	id, err := openid.Verify(fullURL, discoveryCache, nonceStore)
+	fullURL := fmt.Sprintf("%v://%v%v", oid.scheme, r.Host, r.URL.String())
+	id, err := openid.Verify(fullURL, oid.discoveryCache, oid.nonceStore)
 	if err != nil {
+		log.Println("Verification failed:", err)
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
 	}
 
 	// verified then find the original stored url and redirect the use back to their original request
@@ -69,7 +84,7 @@ func Callback(w http.ResponseWriter, r *http.Request, onVerify affinity.VerifyHa
 		return
 	}
 
-	originalUrl, ok := urlStore[cbuuid]
+	originalUrl, ok := oid.urlStore[cbuuid]
 	if !ok {
 		log.Println("cbuuid", cbuuid, "not found in local store")
 		http.Error(w, "Server error", http.StatusInternalServerError)
@@ -80,12 +95,12 @@ func Callback(w http.ResponseWriter, r *http.Request, onVerify affinity.VerifyHa
 		onVerify(id)
 	}
 
-	delete(urlStore, cbuuid)
+	delete(oid.urlStore, cbuuid)
 	expiration := time.Now().Add(time.Hour * 24)
 	cookieUrl, _ := url.Parse(originalUrl)
 
 	cookie := http.Cookie{
-		Name:    "washed",
+		Name:    oid.authCookieName(),
 		Value:   "true",
 		Path:    "/",
 		Domain:  cookieUrl.Host,
@@ -114,10 +129,10 @@ func Callback(w http.ResponseWriter, r *http.Request, onVerify affinity.VerifyHa
 	http.Redirect(w, r, originalUrl, http.StatusSeeOther)
 }
 
-func Authenticate(authorityURL string, w http.ResponseWriter, r *http.Request) (bool, error) {
+func (oid *OpenID) Authenticate(authorityURL string, w http.ResponseWriter, r *http.Request) (bool, error) {
 
 	// check for cookie holding flag
-	if washed(r.Cookies()) {
+	if oid.authenticated(r.Cookies()) {
 		return true, nil
 	}
 
@@ -125,25 +140,28 @@ func Authenticate(authorityURL string, w http.ResponseWriter, r *http.Request) (
 	cbuuid := uuid.NewRandom()
 
 	// store the original user requested url
-	originalUrl := fmt.Sprintf("%v://%v%v", r.URL.Scheme, r.Host, r.URL.String())
-	urlStore[cbuuid.String()] = originalUrl
+	originalUrl := fmt.Sprintf("%v://%v%v", oid.scheme, r.Host, r.URL.String())
+	oid.urlStore[cbuuid.String()] = originalUrl
 
 	// now redirect to the authority
-	fullURL := fmt.Sprintf("%v://%v%v?cbuuid=%v", r.URL.Scheme, r.Host, "/openidcallback", cbuuid)
-	redirectUrl, err := openid.RedirectUrl(authorityURL, fullURL, "")
-
-	if err != nil {
+	fullURL := fmt.Sprintf("%v://%v%v?cbuuid=%v", oid.scheme, r.Host, "/openidcallback", cbuuid)
+	if redirectUrl, err := openid.RedirectUrl(authorityURL, fullURL, ""); err == nil {
+		http.Redirect(w, r, redirectUrl, http.StatusSeeOther)
+		return false, nil
+	} else {
 		return false, err
 	}
+}
 
-	http.Redirect(w, r, redirectUrl, http.StatusSeeOther)
-	return true, nil
+func (oid *OpenID) authCookieName() string {
+	return hex.EncodeToString([]byte(fmt.Sprintf("%s.authenticated", oid.realm)))
 }
 
 // washed checks for and returns the washed cookie value, defaulting to false.
-func washed(cookies []*http.Cookie) bool {
+func (oid *OpenID) authenticated(cookies []*http.Cookie) bool {
+	matchName := oid.authCookieName()
 	for _, cookie := range cookies {
-		if cookie.Name == "washed" {
+		if cookie.Name == matchName {
 			return cookie.Value == "true"
 		}
 	}

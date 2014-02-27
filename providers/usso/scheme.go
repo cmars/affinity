@@ -33,25 +33,33 @@ import (
 type UssoScheme struct {
 	PasswordProvider PasswordProvider
 	Token            string
+	OpenID           *common.OpenID
 }
 
-func NewScheme(host string) *UssoScheme {
-	return &UssoScheme{Token: fmt.Sprintf("Affinity groups on %s", host)}
-}
-
-func (s *UssoScheme) password() (string, error) {
-	pp := s.PasswordProvider
-	if pp == nil {
-		pp = &PasswordPrompter{}
+func NewOpenIdWeb(scheme string, token string) *UssoScheme {
+	return &UssoScheme{
+		PasswordProvider: &PasswordUnavailable{},
+		Token:            token,
+		OpenID:           common.NewSimpleOpenID(scheme, token),
 	}
-	return pp.Password()
+}
+
+func NewOauthCli(token string) *UssoScheme {
+	return &UssoScheme{
+		PasswordProvider: &PasswordPrompter{},
+		Token:            token,
+	}
 }
 
 func (s *UssoScheme) Callback(w http.ResponseWriter, r *http.Request) (User, url.Values, error) {
+	if s.OpenID == nil {
+		return User{}, nil, fmt.Errorf("OpenID not supported")
+	}
+
 	var user User
 	values := make(map[string][]string)
 	err := fmt.Errorf("Failed to authenticate")
-	common.Callback(w, r, func(id map[string]string) {
+	s.OpenID.Callback(w, r, func(id map[string]string) {
 		user = User{Identity{Scheme: s.Name(), Id: id["email"]}}
 		for k, v := range id {
 			values[k] = []string{v}
@@ -62,7 +70,13 @@ func (s *UssoScheme) Callback(w http.ResponseWriter, r *http.Request) (User, url
 }
 
 func (s *UssoScheme) Authenticate(w http.ResponseWriter, r *http.Request) bool {
-	rv, err := common.Authenticate(usso.ProductionUbuntuSSOServer.LoginURL(), w, r)
+	if s.OpenID == nil {
+		http.Error(w, "Server error", http.StatusInternalServerError)
+		log.Println(fmt.Errorf("OpenID not supported"))
+		return false
+	}
+
+	rv, err := s.OpenID.Authenticate(usso.ProductionUbuntuSSOServer.LoginURL(), w, r)
 	if err != nil {
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		log.Println(err)
@@ -72,7 +86,7 @@ func (s *UssoScheme) Authenticate(w http.ResponseWriter, r *http.Request) bool {
 }
 
 func (s *UssoScheme) Auth(id string) (values url.Values, err error) {
-	pass, err := s.password()
+	pass, err := s.PasswordProvider.Password()
 	if err != nil {
 		return nil, err
 	}

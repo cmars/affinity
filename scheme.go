@@ -18,6 +18,7 @@
 package affinity
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 
@@ -38,6 +39,12 @@ type PasswordPrompter struct{}
 
 func (pp *PasswordPrompter) Password() (string, error) {
 	return gopass.GetPass("Password: ")
+}
+
+type PasswordUnavailable struct{}
+
+func (pu *PasswordUnavailable) Password() (string, error) {
+	return "", fmt.Errorf("Password is unavailable")
 }
 
 // SchemeAuthorizer creates authorization tokens for a given identity.
