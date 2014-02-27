@@ -88,6 +88,24 @@ func Callback(w http.ResponseWriter, r *http.Request) {
 
 	http.SetCookie(w, &cookie)
 
+	emailId, ok := values["openid.sreg.email"]
+	if !ok {
+		http.Error(w, "Server error", http.StatusInternalServerError)
+		return
+	}
+
+	// TODO look up the emailId in affinity and replace with a affinity obfuscated id
+	affinityId := emailId[0]
+
+	cookie = http.Cookie{
+		Name:    "affinityId",
+		Value:   affinityId,
+		Path:    "/",
+		Domain:  cookieUrl.Host,
+		Expires: expiration}
+
+	http.SetCookie(w, &cookie)
+
 	http.Redirect(w, r, originalUrl, http.StatusSeeOther)
 
 }
