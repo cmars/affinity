@@ -132,11 +132,12 @@ func Authenticate(authorityURL string, w http.ResponseWriter, r *http.Request) (
 	fullURL := fmt.Sprintf("%v://%v%v?cbuuid=%v", r.URL.Scheme, r.Host, "/openidcallback", cbuuid)
 	redirectUrl, err := openid.RedirectUrl(authorityURL, fullURL, "")
 
-	if err == nil {
-		http.Redirect(w, r, redirectUrl, http.StatusSeeOther)
-		return true, nil
+	if err != nil {
+		return false, err
 	}
-	return false, err
+
+	http.Redirect(w, r, redirectUrl, http.StatusSeeOther)
+	return true, nil
 }
 
 // washed checks for and returns the washed cookie value, defaulting to false.
