@@ -6,12 +6,12 @@ import (
 	"html/template"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 
 	"github.com/gorilla/mux"
 	"github.com/juju/affinity"
 	"github.com/juju/affinity/providers/usso"
+	"github.com/juju/affinity/rbac"
 	rbac_mongo "github.com/juju/affinity/storage/mongo"
 	"labix.org/v2/mgo"
 )
@@ -22,10 +22,10 @@ var mgoAddr *string = flag.String("mongo", "localhost:27017", "Mongo DB URL")
 var mgoDbName *string = flag.String("dbname", "demo", "Mongo DB name")
 
 type DemoHandler struct {
-	Store          affinity.Store
+	Store          rbac.Store
 	Scheme         affinity.Scheme
 	CurrentUser    affinity.User
-	CurrentDetails url.Values
+	CurrentDetails *affinity.TokenInfo
 }
 
 func die(err error) {
@@ -72,7 +72,7 @@ func (h HomeHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	p := make(map[string]string)
 	p["user"] = h.CurrentUser.Id
-	log.Println("User details from OpenID authentication:", h.CurrentDetails)
+	log.Println("User details from OpenID authentication:", h.CurrentDetails.Serialize())
 	if t, err := template.ParseFiles(dataDir + "index.html"); err == nil {
 		t.Execute(w, p)
 	} else {

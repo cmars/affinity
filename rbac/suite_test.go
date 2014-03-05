@@ -15,7 +15,7 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-package affinity_test
+package rbac_test
 
 import (
 	stdtesting "testing"

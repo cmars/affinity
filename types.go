@@ -18,7 +18,9 @@
 package affinity
 
 import (
+	"bytes"
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -48,6 +50,7 @@ type Group struct {
 // User defines a singular, individual principal identity.
 type User struct {
 	Identity
+	TokenInfo *TokenInfo
 }
 
 // Identity defines a principal identifier distinct within an authentication scheme.
@@ -87,7 +90,7 @@ func ParseUser(s string) (u User, err error) {
 	if i == -1 || i == 0 || i == len(s)-1 {
 		return u, fmt.Errorf("Parse error: invalid User format '%v'", s)
 	}
-	return User{Identity{s[0:i], s[i+1:]}}, nil
+	return User{Identity: Identity{s[0:i], s[i+1:]}, TokenInfo: nil}, nil
 }
 
 func MustParseUser(s string) User {
@@ -122,4 +125,61 @@ func (g Group) Contains(p Principal) bool {
 		}
 	}
 	return false
+}
+
+type TokenInfo struct {
+	SchemeId string
+	Values   url.Values
+}
+
+func NewTokenInfo(schemeId string) *TokenInfo {
+	return &TokenInfo{
+		SchemeId: schemeId,
+		Values:   url.Values{},
+	}
+}
+
+func (t *TokenInfo) Realm() string {
+	return t.Values.Get("realm")
+}
+
+func ParseTokenInfo(header string) (*TokenInfo, error) {
+	parts := strings.SplitN(header, " ", 1)
+	if len(parts) < 2 {
+		return nil, fmt.Errorf("Malformed authentication header: %s", header)
+	}
+	schemeId := parts[0]
+	paramString := parts[1]
+
+	token := &TokenInfo{SchemeId: schemeId, Values: url.Values{}}
+	parts = strings.Split(paramString, ",")
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		kvpair := strings.Split(part, "=")
+		if len(kvpair) != 2 {
+			return nil, fmt.Errorf("Malformed authentication param: %s", part)
+		}
+		key, value := kvpair[0], kvpair[1]
+		value = strings.Trim(value, `"`)
+		value = strings.Replace(value, `\"`, `"`, -1)
+		token.Values.Add(key, value)
+	}
+	return token, nil
+}
+
+func (t *TokenInfo) Serialize() string {
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, "%s", t.SchemeId)
+	first := true
+	for key, values := range t.Values {
+		for _, value := range values {
+			if first {
+				first = false
+			} else {
+				fmt.Fprintf(&buf, ",")
+			}
+			fmt.Fprintf(&buf, " %s=%s", key, value)
+		}
+	}
+	return buf.String()
 }

@@ -23,12 +23,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 
 	"github.com/gorilla/mux"
 
 	. "github.com/juju/affinity"
 	"github.com/juju/affinity/group"
+	"github.com/juju/affinity/rbac"
 )
 
 type Response struct {
@@ -52,11 +52,11 @@ func (r *Response) Send(w http.ResponseWriter) {
 
 type Server struct {
 	*mux.Router
-	store   Store
+	store   rbac.Store
 	schemes SchemeMap
 }
 
-func NewServer(store Store) *Server {
+func NewServer(store rbac.Store) *Server {
 	s := &Server{mux.NewRouter(), store, make(SchemeMap)}
 	s.HandleFunc("/{group}/", s.HandleGroup)
 	s.HandleFunc("/{group}/{user}/", s.HandleUser)
@@ -89,27 +89,32 @@ func (s *Server) Callback(scheme string, w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) Authenticate(r *http.Request) (user User, err error) {
-	authStr := r.Header.Get("Authorization")
-	if authStr == "" {
+	auths, has := r.Header["Authorization"]
+	if !has {
 		return User{}, fmt.Errorf("Request not authenticated")
 	}
-	values, err := url.ParseQuery(authStr)
-	if err != nil {
-		return User{}, err
+	var validToken *TokenInfo
+	var userId string
+	for _, auth := range auths {
+		token, err := ParseTokenInfo(auth)
+		if err != nil {
+			continue
+		}
+		scheme, has := s.schemes[token.SchemeId]
+		if !has {
+			continue
+		}
+		userId, err = scheme.Validator().Validate(token)
+		if err != nil {
+			continue
+		} else {
+			break
+		}
 	}
-	schemeId := values.Get("Affinity-Scheme")
-	if schemeId == "" {
-		return User{}, fmt.Errorf("Scheme not specified")
+	if validToken == nil {
+		return User{}, fmt.Errorf("Request not authenticated")
 	}
-	scheme, has := s.schemes[schemeId]
-	if !has {
-		return User{}, fmt.Errorf("unsupported scheme:", schemeId)
-	}
-	userId, err := scheme.Validator().Validate(values)
-	if err != nil {
-		return User{}, err
-	}
-	user = User{Identity{schemeId, userId}}
+	user = User{Identity: Identity{validToken.SchemeId, userId}, TokenInfo: validToken}
 	if user.Wildcard() {
 		return User{}, fmt.Errorf("Cannot authenticate a wildcard user")
 	}

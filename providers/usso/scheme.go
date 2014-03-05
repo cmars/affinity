@@ -51,22 +51,22 @@ func NewOauthCli(token string) *UssoScheme {
 	}
 }
 
-func (s *UssoScheme) Callback(w http.ResponseWriter, r *http.Request) (User, url.Values, error) {
+func (s *UssoScheme) Callback(w http.ResponseWriter, r *http.Request) (User, *TokenInfo, error) {
 	if s.OpenID == nil {
 		return User{}, nil, fmt.Errorf("OpenID not supported")
 	}
 
 	var user User
-	values := make(map[string][]string)
+	token := NewTokenInfo(s.Name())
 	err := fmt.Errorf("Failed to authenticate")
 	s.OpenID.Callback(w, r, func(id map[string]string) {
-		user = User{Identity{Scheme: s.Name(), Id: id["email"]}}
+		user = User{Identity: Identity{Scheme: s.Name(), Id: id["email"]}, TokenInfo: token}
 		for k, v := range id {
-			values[k] = []string{v}
+			token.Values.Add(k, v)
 		}
 		err = nil
 	})
-	return user, values, err
+	return user, token, err
 }
 
 func (s *UssoScheme) Authenticate(w http.ResponseWriter, r *http.Request) bool {
@@ -85,7 +85,7 @@ func (s *UssoScheme) Authenticate(w http.ResponseWriter, r *http.Request) bool {
 	return rv
 }
 
-func (s *UssoScheme) Auth(id string) (values url.Values, err error) {
+func (s *UssoScheme) Auth(id string) (token *TokenInfo, err error) {
 	pass, err := s.PasswordProvider.Password()
 	if err != nil {
 		return nil, err
@@ -96,38 +96,43 @@ func (s *UssoScheme) Auth(id string) (values url.Values, err error) {
 		return nil, err
 	}
 
-	return url.Values{
-		"ConsumerKey":     []string{ssoData.ConsumerKey},
-		"ConsumerSecret":  []string{ssoData.ConsumerSecret},
-		"TokenKey":        []string{ssoData.TokenKey},
-		"TokenName":       []string{ssoData.TokenName},
-		"TokenSecret":     []string{ssoData.TokenSecret},
-		"Affinity-Scheme": []string{s.Name()},
+	return &TokenInfo{
+		SchemeId: s.Name(),
+		Values: url.Values{
+			"ConsumerKey":    []string{ssoData.ConsumerKey},
+			"ConsumerSecret": []string{ssoData.ConsumerSecret},
+			"TokenKey":       []string{ssoData.TokenKey},
+			"TokenName":      []string{ssoData.TokenName},
+			"TokenSecret":    []string{ssoData.TokenSecret},
+		},
 	}, nil
 }
 
-func (s *UssoScheme) Validate(values url.Values) (id string, err error) {
-	consumerKey := values.Get("ConsumerKey")
+func (s *UssoScheme) Validate(token *TokenInfo) (id string, err error) {
+	if token.SchemeId != s.Name() {
+		return "", fmt.Errorf("%s: Not an Ubuntu SSO token", token.SchemeId)
+	}
+	consumerKey := token.Values.Get("ConsumerKey")
 	if consumerKey == "" {
 		err = fmt.Errorf("No ConsumerKey provided in authorization")
 		return "", err
 	}
-	consumerSecret := values.Get("ConsumerSecret")
+	consumerSecret := token.Values.Get("ConsumerSecret")
 	if consumerSecret == "" {
 		err = fmt.Errorf("No ConsumerSecret provided in authorization")
 		return "", err
 	}
-	tokenKey := values.Get("TokenKey")
+	tokenKey := token.Values.Get("TokenKey")
 	if tokenKey == "" {
 		err = fmt.Errorf("No TokenKey provided in authorization")
 		return "", err
 	}
-	tokenSecret := values.Get("TokenSecret")
+	tokenSecret := token.Values.Get("TokenSecret")
 	if tokenSecret == "" {
 		err = fmt.Errorf("No TokenSecret provided in authorization")
 		return "", err
 	}
-	tokenName := values.Get("TokenName")
+	tokenName := token.Values.Get("TokenName")
 	if tokenName == "" {
 		err = fmt.Errorf("No TokenName provided in authorization")
 		return "", err

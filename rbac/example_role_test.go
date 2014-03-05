@@ -1,9 +1,9 @@
-package affinity_test
+package rbac_test
 
 import (
 	"testing"
 
-	. "github.com/juju/affinity"
+	"github.com/juju/affinity/rbac"
 )
 
 /*
@@ -14,13 +14,13 @@ import (
  */
 
 // LurkerRole is someone who can only read the posts.
-var LurkerRole Role = NewRole("lurker", ReadPerm, ListPerm)
+var LurkerRole rbac.Role = rbac.NewRole("lurker", ReadPerm, ListPerm)
 
 // PosterRole is someone who can post refreshing, original content.
-var PosterRole Role = NewRole("poster", ReadPerm, ListPerm, PostPerm)
+var PosterRole rbac.Role = rbac.NewRole("poster", ReadPerm, ListPerm, PostPerm)
 
 // ModeratorRole is someone who can delete posts and ban users.
-var ModeratorRole Role = NewRole("moderator",
+var ModeratorRole rbac.Role = rbac.NewRole("moderator",
 	ReadPerm, ListPerm, PostPerm,
 	StickyPerm, DeletePerm, BanPerm)
 

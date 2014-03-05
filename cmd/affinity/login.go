@@ -67,7 +67,7 @@ func (c *loginCmd) Main() {
 	if err != nil {
 		die(err)
 	}
-	schemes.Register(usso.NewScheme(serverUrl.Host))
+	schemes.Register(usso.NewOauthCli(serverUrl.Host))
 
 	user, err := ParseUser(c.user)
 	if err != nil {
@@ -79,16 +79,17 @@ func (c *loginCmd) Main() {
 		die(fmt.Errorf("Scheme '%s' is not supported", user.Scheme))
 	}
 
-	values, err := scheme.Authorizer().Auth(user.Id)
+	token, err := scheme.Authorizer().Auth(user.Id)
 	if err != nil {
 		die(err)
 	}
 
-	authStore, err := client.NewFileAuthStore(c.homeDir, serverUrl)
+	authStore, err := client.NewFileAuthStore(c.homeDir)
 	if err != nil {
 		die(err)
 	}
-	err = authStore.Write(values)
+
+	err = authStore.Set(token, serverUrl.Host)
 	if err != nil {
 		die(err)
 	}

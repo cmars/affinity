@@ -18,7 +18,7 @@
 package mem
 
 import (
-	. "github.com/juju/affinity"
+	"github.com/juju/affinity/rbac"
 	"github.com/juju/affinity/util"
 )
 
@@ -35,7 +35,7 @@ type memStore struct {
 	groups groupMap
 }
 
-func NewStore() Store {
+func NewStore() rbac.Store {
 	return &memStore{
 		grants: make(grantSet),
 		groups: make(groupMap),
@@ -77,7 +77,7 @@ func (s *memStore) RemoveGroup(group string) error {
 func (s *memStore) AddMember(group, member string) error {
 	groups, has := s.groups[group]
 	if !has {
-		return ErrNotFound
+		return rbac.ErrNotFound
 	}
 	groups[member] = true
 	return nil
@@ -86,7 +86,7 @@ func (s *memStore) AddMember(group, member string) error {
 func (s *memStore) RemoveMember(group, member string) error {
 	groups, has := s.groups[group]
 	if !has {
-		return ErrNotFound
+		return rbac.ErrNotFound
 	}
 	delete(groups, member)
 	return nil

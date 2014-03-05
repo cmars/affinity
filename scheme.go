@@ -20,7 +20,6 @@ package affinity
 import (
 	"fmt"
 	"net/http"
-	"net/url"
 
 	"code.google.com/p/gopass"
 )
@@ -52,7 +51,7 @@ type SchemeAuthorizer interface {
 	// Auth obtains the authorization token parameters for the given identity.
 	// Some implementations may support multiple factors
 	// (passphrases, private keys, etc.) when creating the authorization.
-	Auth(id string) (values url.Values, err error)
+	Auth(id string) (token *TokenInfo, err error)
 }
 
 // VerifyHandler is a callback function which receives the user's identity
@@ -62,14 +61,14 @@ type VerifyHandler func(map[string]string)
 // SchemeAuthenticator authenticates handshake identity protocols such as OpenID or OAuth 2.
 type SchemeAuthenticator interface {
 	Authenticate(w http.ResponseWriter, r *http.Request) bool
-	Callback(w http.ResponseWriter, r *http.Request) (User, url.Values, error)
+	Callback(w http.ResponseWriter, r *http.Request) (User, *TokenInfo, error)
 }
 
 // SchemeValidator validates an authorization token obtained by SchemeAuthorizer.
 type SchemeValidator interface {
 	// Validate checks the authorization parameters are valid. If so, returns the
 	// qualified user ID which created it.
-	Validate(values url.Values) (id string, err error)
+	Validate(token *TokenInfo) (id string, err error)
 }
 
 // Scheme is a system which identifies principal user identities, and

@@ -1,4 +1,4 @@
-package affinity_test
+package rbac_test
 
 import (
 	. "github.com/juju/affinity"
