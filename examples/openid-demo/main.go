@@ -5,15 +5,18 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"net"
 	"net/http"
 	"os"
 
 	"github.com/gorilla/mux"
+	"labix.org/v2/mgo"
+
 	"github.com/juju/affinity"
+	"github.com/juju/affinity/examples"
 	"github.com/juju/affinity/providers/usso"
 	"github.com/juju/affinity/rbac"
 	rbac_mongo "github.com/juju/affinity/storage/mongo"
-	"labix.org/v2/mgo"
 )
 
 const dataDir = "./"
@@ -37,6 +40,14 @@ func die(err error) {
 
 func main() {
 	flag.Parse()
+
+	// affinity only redirects to https:// URLs for OpenID.
+	// We'll create some self-signed certs for the demo if needed.
+	err := examples.BuildCerts(*keyFile, *certFile, "localhost:8443")
+	if err != nil {
+		die(err)
+	}
+
 	session, err := mgo.Dial(*mgoAddr)
 	if err != nil {
 		die(fmt.Errorf("Failed to connect to store:%v", err))
@@ -48,9 +59,9 @@ func main() {
 	}
 
 	demoContext := DemoHandler{
-		Store:       rbacStore,
-		Scheme:      usso.NewOpenIdWeb("openid-demo@localhost"),
-		CurrentUser: affinity.User{},
+		Store:          rbacStore,
+		Scheme:         usso.NewOpenIdWeb("openid-demo@localhost"),
+		CurrentUser:    affinity.User{},
 		CurrentDetails: &affinity.TokenInfo{},
 	}
 
@@ -60,10 +71,21 @@ func main() {
 	r.Handle("/openidcallback", CallbackHandler{&demoContext})
 
 	// Send all incoming requests to mux.DefaultRouter.
-	err = http.ListenAndServeTLS(":8080", *certFile, *keyFile, r)
+	go http.ListenAndServe(":8080", RedirectToTls{})
+	err = http.ListenAndServeTLS(":8443", *certFile, *keyFile, r)
 	if err != nil {
 		die(err)
 	}
+}
+
+type RedirectToTls struct{}
+
+func (_ RedirectToTls) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	host, _, err := net.SplitHostPort(req.Host)
+	if err != nil {
+		host = req.Host
+	}
+	http.Redirect(w, req, fmt.Sprintf("https://%v:8443%v", host, req.URL.Path), 301)
 }
 
 func BadRequest(w http.ResponseWriter, err error) {
