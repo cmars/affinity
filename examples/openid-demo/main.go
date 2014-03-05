@@ -20,6 +20,8 @@ const dataDir = "./"
 
 var mgoAddr *string = flag.String("mongo", "localhost:27017", "Mongo DB URL")
 var mgoDbName *string = flag.String("dbname", "demo", "Mongo DB name")
+var certFile *string = flag.String("cert", "cert.pem", "SSL certificate")
+var keyFile *string = flag.String("key", "key.pem", "SSL private key")
 
 type DemoHandler struct {
 	Store          rbac.Store
@@ -34,6 +36,7 @@ func die(err error) {
 }
 
 func main() {
+	flag.Parse()
 	session, err := mgo.Dial(*mgoAddr)
 	if err != nil {
 		die(fmt.Errorf("Failed to connect to store:%v", err))
@@ -46,8 +49,9 @@ func main() {
 
 	demoContext := DemoHandler{
 		Store:       rbacStore,
-		Scheme:      usso.NewOpenIdWeb("http", "openid-demo@localhost"),
+		Scheme:      usso.NewOpenIdWeb("openid-demo@localhost"),
 		CurrentUser: affinity.User{},
+		CurrentDetails: &affinity.TokenInfo{},
 	}
 
 	r := mux.NewRouter()
@@ -56,7 +60,10 @@ func main() {
 	r.Handle("/openidcallback", CallbackHandler{&demoContext})
 
 	// Send all incoming requests to mux.DefaultRouter.
-	http.ListenAndServe(":8080", r)
+	err = http.ListenAndServeTLS(":8080", *certFile, *keyFile, r)
+	if err != nil {
+		die(err)
+	}
 }
 
 func BadRequest(w http.ResponseWriter, err error) {

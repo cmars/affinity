@@ -36,11 +36,11 @@ type UssoScheme struct {
 	OpenID           *common.OpenID
 }
 
-func NewOpenIdWeb(scheme string, token string) *UssoScheme {
+func NewOpenIdWeb(token string) *UssoScheme {
 	return &UssoScheme{
 		PasswordProvider: &PasswordUnavailable{},
 		Token:            token,
-		OpenID:           common.NewSimpleOpenID(scheme, token),
+		OpenID:           common.NewSimpleOpenID(token),
 	}
 }
 

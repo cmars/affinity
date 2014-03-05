@@ -38,23 +38,21 @@ type OpenID struct {
 	nonceStore     *openid.SimpleNonceStore
 	discoveryCache *openid.SimpleDiscoveryCache
 	urlStore       map[string]string
-	scheme         string
 	realm          string
 }
 
-func NewSimpleOpenID(scheme string, realm string) *OpenID {
+func NewSimpleOpenID(realm string) *OpenID {
 	return &OpenID{
 		nonceStore:     &openid.SimpleNonceStore{Store: make(map[string][]*openid.Nonce)},
 		discoveryCache: &openid.SimpleDiscoveryCache{},
 		urlStore:       make(map[string]string), // TODO: needs to expire handshakes
-		scheme:         scheme,
 		realm:          realm,
 	}
 }
 
 func (oid *OpenID) Callback(w http.ResponseWriter, r *http.Request, onVerify affinity.VerifyHandler) {
 	// verify the response
-	fullURL := fmt.Sprintf("%v://%v%v", oid.scheme, r.Host, r.URL.String())
+	fullURL := fmt.Sprintf("https://%v%v", r.Host, r.URL.String())
 	id, err := openid.Verify(fullURL, oid.discoveryCache, oid.nonceStore)
 	if err != nil {
 		log.Println("Verification failed:", err)
@@ -140,11 +138,11 @@ func (oid *OpenID) Authenticate(authorityURL string, w http.ResponseWriter, r *h
 	cbuuid := uuid.NewRandom()
 
 	// store the original user requested url
-	originalUrl := fmt.Sprintf("%v://%v%v", oid.scheme, r.Host, r.URL.String())
+	originalUrl := fmt.Sprintf("https://%v%v", r.Host, r.URL.String())
 	oid.urlStore[cbuuid.String()] = originalUrl
 
 	// now redirect to the authority
-	fullURL := fmt.Sprintf("%v://%v%v?cbuuid=%v", oid.scheme, r.Host, "/openidcallback", cbuuid)
+	fullURL := fmt.Sprintf("https://%v%v?cbuuid=%v", r.Host, "/openidcallback", cbuuid)
 	if redirectUrl, err := openid.RedirectUrl(authorityURL, fullURL, ""); err == nil {
 		http.Redirect(w, r, redirectUrl, http.StatusSeeOther)
 		return false, nil
