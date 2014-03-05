@@ -51,7 +51,7 @@ func (c *loginCmd) Name() string { return "login" }
 func (c *loginCmd) Desc() string { return "Log in to generate an affinity credential" }
 
 func (c *loginCmd) Main() {
-	schemes := make(SchemeMap)
+	schemes := NewSchemeMap()
 
 	if c.url == "" {
 		Usage(c, "--url is required")
@@ -67,19 +67,19 @@ func (c *loginCmd) Main() {
 	if err != nil {
 		die(err)
 	}
-	schemes.Register(usso.NewOauthCli(serverUrl.Host))
+	schemes.Register(usso.NewOauthCli(fmt.Sprintf("affinity@%s", serverUrl.Host)))
 
 	user, err := ParseUser(c.user)
 	if err != nil {
 		die(err)
 	}
 
-	scheme, has := schemes[user.Scheme]
-	if !has {
+	scheme := schemes.Token(user.Scheme)
+	if scheme == nil {
 		die(fmt.Errorf("Scheme '%s' is not supported", user.Scheme))
 	}
 
-	token, err := scheme.Authorizer().Auth(user.Id)
+	token, err := scheme.Authorize(user, &PasswordPrompter{})
 	if err != nil {
 		die(err)
 	}

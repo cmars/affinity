@@ -40,58 +40,113 @@ func (pp *PasswordPrompter) Password() (string, error) {
 	return gopass.GetPass("Password: ")
 }
 
+// PasswordUnavilable is never able to obtain a password.
 type PasswordUnavailable struct{}
 
 func (pu *PasswordUnavailable) Password() (string, error) {
 	return "", fmt.Errorf("Password is unavailable")
 }
 
-// SchemeAuthorizer creates authorization tokens for a given identity.
-type SchemeAuthorizer interface {
-	// Auth obtains the authorization token parameters for the given identity.
-	// Some implementations may support multiple factors
-	// (passphrases, private keys, etc.) when creating the authorization.
-	Auth(id string) (token *TokenInfo, err error)
-}
-
-// VerifyHandler is a callback function which receives the user's identity
-// during a SchemeAuthenticator handshake.
-type VerifyHandler func(map[string]string)
-
-// SchemeAuthenticator authenticates handshake identity protocols such as OpenID or OAuth 2.
-type SchemeAuthenticator interface {
-	Authenticate(w http.ResponseWriter, r *http.Request) bool
-	Callback(w http.ResponseWriter, r *http.Request) (User, *TokenInfo, error)
-}
-
-// SchemeValidator validates an authorization token obtained by SchemeAuthorizer.
-type SchemeValidator interface {
-	// Validate checks the authorization parameters are valid. If so, returns the
-	// qualified user ID which created it.
-	Validate(token *TokenInfo) (id string, err error)
-}
+var ErrUnauthorized error = fmt.Errorf("HTTP request not authenticated")
 
 // Scheme is a system which identifies principal user identities, and
-// provides a means for those users to prove their identity by authenticating
-// to generate an authorization token for some purpose.
+// provides a means for those users to prove their identity.
 type Scheme interface {
-	// Authenticator returns the authenticator service for this scheme
-	// implementation.
-	Authenticator() SchemeAuthenticator
-	// Authorizer returns the authorization token service for this scheme
-	// implementation.
-	Authorizer() SchemeAuthorizer
+
 	// Name returns the locally bound name for this scheme.
 	Name() string
-	// Validator returns the token validation service for this scheme
-	// implementation.
-	Validator() SchemeValidator
+
+	// Authenticate checks an HTTP request for a positive identity.
+	// Returns the user identity if valie, ErrRequestUnauthorized if
+	// missing or invalid.
+	Authenticate(r *http.Request) (user User, err error)
+}
+
+// TokenScheme
+type TokenScheme interface {
+	Scheme
+
+	// Authorize creates an authorization token for the given identity.
+	// Some implementations may support multiple factors
+	// (passphrases, private keys, etc.) when creating the authorization.
+	Authorize(user User, prov PasswordProvider) (token *TokenInfo, err error)
+
+	// Validate checks an authorization token created by Authorize. If valid,
+	// returns the user identity for whom it was created.
+	Validate(token *TokenInfo) (user User, err error)
+}
+
+// HandshakeScheme handles handshake identity protocols such as OpenID or OAuth 2.
+type HandshakeScheme interface {
+	Scheme
+
+	// SignIn redirects to an identity provider, such as an OpenID or OAuth service.
+	// This interaction requires the client to be a web browser in most cases.
+	SignIn(w http.ResponseWriter, r *http.Request) (err error)
+
+	// Authenticated handles a redirect callback to the application from the identity provider.
+	// Implementations will typically create a session here for the established identity.
+	Authenticated(w http.ResponseWriter, r *http.Request)
 }
 
 // SchemeMap stores registered Scheme name-to-instance bindings.
-type SchemeMap map[string]Scheme
+type SchemeMap struct {
+	schemes map[string]Scheme
+}
+
+func NewSchemeMap() *SchemeMap {
+	return &SchemeMap{
+		schemes: make(map[string]Scheme),
+	}
+}
 
 // Register adds a scheme implementation to the map.
-func (sm SchemeMap) Register(scheme Scheme) {
-	sm[scheme.Name()] = scheme
+// A scheme can only be registered once. After that it
+// cannot be replaced by another scheme.
+func (sm *SchemeMap) Register(scheme Scheme) error {
+	if s, has := sm.schemes[scheme.Name()]; has {
+		return fmt.Errorf("Scheme [%s] already registered", s.Name())
+	}
+	sm.schemes[scheme.Name()] = scheme
+	return nil
+}
+
+func (sm *SchemeMap) Scheme(name string) Scheme {
+	s, has := sm.schemes[name]
+	if !has {
+		return nil
+	}
+	return s
+}
+
+func (sm *SchemeMap) HandshakeAll() []HandshakeScheme {
+	var result []HandshakeScheme
+	for _, v := range sm.schemes {
+		if s, is := v.(HandshakeScheme); is {
+			result = append(result, s)
+		}
+	}
+	return result
+}
+
+func (sm *SchemeMap) Token(name string) TokenScheme {
+	s, has := sm.schemes[name]
+	if !has {
+		return nil
+	}
+	if ts, is := s.(TokenScheme); is {
+		return ts
+	}
+	return nil
+}
+
+func (sm *SchemeMap) Handshake(name string) HandshakeScheme {
+	s, has := sm.schemes[name]
+	if !has {
+		return nil
+	}
+	if hs, is := s.(HandshakeScheme); is {
+		return hs
+	}
+	return nil
 }

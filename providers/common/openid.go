@@ -21,14 +21,13 @@ package common
 // This file contains all of the common openid functionality
 
 import (
-	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
 	"net/url"
-	"time"
 
 	"code.google.com/p/go-uuid/uuid"
+	"github.com/gorilla/sessions"
 	"github.com/kushaldas/openid.go/src/openid"
 
 	"github.com/juju/affinity"
@@ -39,101 +38,136 @@ type OpenID struct {
 	discoveryCache *openid.SimpleDiscoveryCache
 	urlStore       map[string]string
 	realm          string
+	sessionStore   sessions.Store
 }
 
-func NewSimpleOpenID(realm string) *OpenID {
+func NewSimpleOpenID(realm string, sessionStore sessions.Store) *OpenID {
 	return &OpenID{
 		nonceStore:     &openid.SimpleNonceStore{Store: make(map[string][]*openid.Nonce)},
 		discoveryCache: &openid.SimpleDiscoveryCache{},
 		urlStore:       make(map[string]string), // TODO: needs to expire handshakes
 		realm:          realm,
+		sessionStore:   sessionStore,
 	}
 }
 
-func (oid *OpenID) Callback(w http.ResponseWriter, r *http.Request, onVerify affinity.VerifyHandler) {
+func (oid *OpenID) respError(w http.ResponseWriter, msg string, statusCode int, cause error) {
+	log.Println(cause)
+	http.Error(w, msg, statusCode)
+	return
+}
+
+func (oid *OpenID) Callback(w http.ResponseWriter, r *http.Request) {
 	// verify the response
 	fullURL := fmt.Sprintf("https://%v%v", r.Host, r.URL.String())
-	id, err := openid.Verify(fullURL, oid.discoveryCache, oid.nonceStore)
+	_, err := openid.Verify(fullURL, oid.discoveryCache, oid.nonceStore)
 	if err != nil {
-		log.Println("Verification failed:", err)
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		oid.respError(w, "Unauthorized", http.StatusUnauthorized,
+			fmt.Errorf("OpenID verification failed: %v", err))
 		return
 	}
 
 	// verified then find the original stored url and redirect the use back to their original request
 	values, err := url.ParseQuery(r.URL.RawQuery)
 	if err != nil {
-		log.Println("Failed to parse URL query string:", r.URL)
-		http.Error(w, "Server error", http.StatusInternalServerError)
+		oid.respError(w, "Server error", http.StatusInternalServerError,
+			fmt.Errorf("Failed to parse URL query string: %v", r.URL))
 		return
 	}
 
 	returnTo := values.Get("openid.return_to")
 	if returnTo == "" {
-		log.Println("openid.return_to not set in callback: ", values)
-		http.Error(w, "Server error", http.StatusInternalServerError)
+		oid.respError(w, "Server error", http.StatusInternalServerError,
+			fmt.Errorf("openid.return_to not set in callback: %v", values))
 		return
 	}
 
 	cbuuid := values.Get("cbuuid")
 	if cbuuid == "" {
-		log.Println("cbuuid not set in callback: ", values)
-		http.Error(w, "Server error", http.StatusInternalServerError)
+		oid.respError(w, "Server error", http.StatusInternalServerError,
+			fmt.Errorf("cbuuid not set in callback: %v", values))
 		return
 	}
 
 	originalUrl, ok := oid.urlStore[cbuuid]
 	if !ok {
-		log.Println("cbuuid", cbuuid, "not found in local store")
-		http.Error(w, "Server error", http.StatusInternalServerError)
+		oid.respError(w, "Server error", http.StatusInternalServerError,
+			fmt.Errorf("cbuuid %v not found in local store", cbuuid))
 		return
 	}
 
-	if onVerify != nil {
-		onVerify(id)
-	}
-
+	// We're done with the callback, remove it.
+	// TODO: we should use an expiring kv store for these to prevent DoS.
 	delete(oid.urlStore, cbuuid)
-	expiration := time.Now().Add(time.Hour * 24)
-	cookieUrl, _ := url.Parse(originalUrl)
 
-	cookie := http.Cookie{
-		Name:    oid.authCookieName(),
-		Value:   "true",
-		Path:    "/",
-		Domain:  cookieUrl.Host,
-		Expires: expiration}
-
-	http.SetCookie(w, &cookie)
-
-	emailId, ok := values["openid.sreg.email"]
+	_, ok = values["openid.sreg.email"]
 	if !ok {
-		http.Error(w, "Server error", http.StatusInternalServerError)
+		oid.respError(w, "Server error", http.StatusInternalServerError,
+			fmt.Errorf("openid.sreq.email missing from OpenID response"))
 		return
 	}
 
-	// TODO look up the emailId in affinity and replace with a affinity obfuscated id
-	affinityId := emailId[0]
+	session, err := oid.sessionStore.Get(r, "realm")
+	if err != nil {
+		oid.respError(w, "Server error", http.StatusInternalServerError,
+			fmt.Errorf("Failed to get session: %v", err))
+		return
+	}
 
-	cookie = http.Cookie{
-		Name:    "affinityId",
-		Value:   affinityId,
-		Path:    "/",
-		Domain:  cookieUrl.Host,
-		Expires: expiration}
+	cookieUrl, err := url.Parse(originalUrl)
+	if err != nil {
+		oid.respError(w, "Server error", http.StatusInternalServerError,
+			fmt.Errorf("Original URL invalid: %v", err))
+		return
+	}
 
-	http.SetCookie(w, &cookie)
+	session.Options = &sessions.Options{
+		Path:     "/",
+		Domain:   cookieUrl.Host,
+		MaxAge:   86400 * 7, // One week
+		Secure:   true,      // Enforce https, same-origin policy
+		HttpOnly: true,      // http://blog.codinghorror.com/protecting-your-cookies-httponly/
+	}
+	for k, v := range values {
+		session.Values[k] = v
+	}
+	err = oid.sessionStore.Save(r, w, session)
+	if err != nil {
+		oid.respError(w, "Server error", http.StatusInternalServerError,
+			fmt.Errorf("Failed to save session: %v", err))
+		return
+	}
 
 	http.Redirect(w, r, originalUrl, http.StatusSeeOther)
 }
 
-func (oid *OpenID) Authenticate(authorityURL string, w http.ResponseWriter, r *http.Request) (bool, error) {
-
-	// check for cookie holding flag
-	if oid.authenticated(r.Cookies()) {
-		return true, nil
+func (oid *OpenID) Authenticate(r *http.Request) (*sessions.Session, error) {
+	session, err := oid.sessionStore.Get(r, oid.realm)
+	if err != nil {
+		return nil, err
 	}
+	if session.IsNew || oid.Email(session) == "" {
+		return nil, affinity.ErrUnauthorized
+	}
+	return session, nil
+}
 
+func (oid *OpenID) Email(session *sessions.Session) string {
+	email, has := session.Values["openid.sreg.email"]
+	if !has {
+		return ""
+	}
+	s, is := email.([]string)
+	if !is {
+		return ""
+	}
+	if len(s) == 0 {
+		return ""
+	}
+	return s[0]
+}
+
+func (oid *OpenID) OpRedirect(authorityURL string, w http.ResponseWriter, r *http.Request) error {
 	// not present. redirect to authority for authentication
 	cbuuid := uuid.NewRandom()
 
@@ -145,23 +179,8 @@ func (oid *OpenID) Authenticate(authorityURL string, w http.ResponseWriter, r *h
 	fullURL := fmt.Sprintf("https://%v%v?cbuuid=%v", r.Host, "/openidcallback", cbuuid)
 	if redirectUrl, err := openid.RedirectUrl(authorityURL, fullURL, ""); err == nil {
 		http.Redirect(w, r, redirectUrl, http.StatusSeeOther)
-		return false, nil
+		return nil
 	} else {
-		return false, err
+		return err
 	}
-}
-
-func (oid *OpenID) authCookieName() string {
-	return hex.EncodeToString([]byte(fmt.Sprintf("%s.authenticated", oid.realm)))
-}
-
-// washed checks for and returns the washed cookie value, defaulting to false.
-func (oid *OpenID) authenticated(cookies []*http.Cookie) bool {
-	matchName := oid.authCookieName()
-	for _, cookie := range cookies {
-		if cookie.Name == matchName {
-			return cookie.Value == "true"
-		}
-	}
-	return false
 }

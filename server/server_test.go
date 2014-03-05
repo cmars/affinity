@@ -35,7 +35,7 @@ type ServerSuite struct{}
 var _ = Suite(&ServerSuite{})
 
 func (ss *ServerSuite) TestServerApi(c *C) {
-	s := NewServer(mem.NewStore())
+	s := NewAuthServer(mem.NewStore())
 	ts := httptest.NewServer(s)
 	defer ts.Close()
 

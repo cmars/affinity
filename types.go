@@ -50,7 +50,6 @@ type Group struct {
 // User defines a singular, individual principal identity.
 type User struct {
 	Identity
-	TokenInfo *TokenInfo
 }
 
 // Identity defines a principal identifier distinct within an authentication scheme.
@@ -90,7 +89,7 @@ func ParseUser(s string) (u User, err error) {
 	if i == -1 || i == 0 || i == len(s)-1 {
 		return u, fmt.Errorf("Parse error: invalid User format '%v'", s)
 	}
-	return User{Identity: Identity{s[0:i], s[i+1:]}, TokenInfo: nil}, nil
+	return User{Identity: Identity{s[0:i], s[i+1:]}}, nil
 }
 
 func MustParseUser(s string) User {

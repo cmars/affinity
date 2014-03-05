@@ -10,6 +10,8 @@ import (
 	"os"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/securecookie"
+	"github.com/gorilla/sessions"
 	"labix.org/v2/mgo"
 
 	"github.com/juju/affinity"
@@ -27,10 +29,8 @@ var certFile *string = flag.String("cert", "cert.pem", "SSL certificate")
 var keyFile *string = flag.String("key", "key.pem", "SSL private key")
 
 type DemoHandler struct {
-	Store          rbac.Store
-	Scheme         affinity.Scheme
-	CurrentUser    affinity.User
-	CurrentDetails *affinity.TokenInfo
+	Store  rbac.Store
+	Scheme affinity.HandshakeScheme
 }
 
 func die(err error) {
@@ -58,11 +58,14 @@ func main() {
 		die(fmt.Errorf("Failed to find store:%v", err))
 	}
 
+	sessionStore := sessions.NewCookieStore(
+		securecookie.GenerateRandomKey(32),
+		securecookie.GenerateRandomKey(32),
+	)
+
 	demoContext := DemoHandler{
-		Store:          rbacStore,
-		Scheme:         usso.NewOpenIdWeb("openid-demo@localhost"),
-		CurrentUser:    affinity.User{},
-		CurrentDetails: &affinity.TokenInfo{},
+		Store:  rbacStore,
+		Scheme: usso.NewOpenIdWeb("openid-demo@localhost", sessionStore),
 	}
 
 	r := mux.NewRouter()
@@ -100,8 +103,16 @@ func (h HomeHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	w.Header().Add("Content-Type", "text/html")
 
 	p := make(map[string]string)
-	p["user"] = h.CurrentUser.Id
-	log.Println("User details from OpenID authentication:", h.CurrentDetails.Serialize())
+	user, err := h.Scheme.Authenticate(req)
+	if err != nil {
+		if err != affinity.ErrUnauthorized {
+			log.Println("Warning: authenticate error:", err)
+			BadRequest(w, err)
+			return
+		}
+	} else {
+		p["user"] = user.String()
+	}
 	if t, err := template.ParseFiles(dataDir + "index.html"); err == nil {
 		t.Execute(w, p)
 	} else {
@@ -114,10 +125,23 @@ type LoginHandler struct {
 }
 
 func (h LoginHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	if h.Scheme.Authenticator().Authenticate(w, req) {
-		http.Redirect(w, req, "/", 303)
+	_, err := h.Scheme.Authenticate(req)
+	if err != nil {
+		if err != affinity.ErrUnauthorized {
+			log.Println("Warning: authenticate error:", err)
+			BadRequest(w, err)
+			return
+		}
+		err = h.Scheme.SignIn(w, req)
+		if err != nil {
+			log.Println("Warning: Sign in error:", err)
+			BadRequest(w, err)
+		}
+		// SignIn will have written a redirect if successful.
 		return
 	}
+	// What are we doing here if we're logged in?
+	http.Redirect(w, req, "/", 303)
 }
 
 type CallbackHandler struct {
@@ -125,10 +149,5 @@ type CallbackHandler struct {
 }
 
 func (h CallbackHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	var err error
-	h.CurrentUser, h.CurrentDetails, err = h.Scheme.Authenticator().Callback(w, req)
-	if err != nil {
-		log.Println("OpenID callback error:", err)
-	}
-	log.Println("User details from OpenID authentication:", h.CurrentDetails)
+	h.Scheme.Authenticated(w, req)
 }
