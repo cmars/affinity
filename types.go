@@ -86,7 +86,7 @@ func (user User) Contains(p Principal) bool {
 
 // ParseUser parses a locally-unique URI representation of an identity into a User.
 func ParseUser(s string) (u User, err error) {
-	i := strings.LastIndex(s, ":")
+	i := strings.Index(s, ":")
 	if i == -1 || i == 0 || i == len(s)-1 {
 		return u, fmt.Errorf("Parse error: invalid User format '%v'", s)
 	}
@@ -144,7 +144,7 @@ func (t *TokenInfo) Realm() string {
 }
 
 func ParseTokenInfo(header string) (*TokenInfo, error) {
-	parts := strings.SplitN(header, " ", 1)
+	parts := strings.SplitN(header, " ", 2)
 	if len(parts) < 2 {
 		return nil, fmt.Errorf("Malformed authentication header: %s", header)
 	}

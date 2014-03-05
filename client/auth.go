@@ -68,12 +68,18 @@ func (s *FileAuthStore) Get(schemeId string, endpoint string) (*TokenInfo, error
 	schemeDir, tokenFileName := s.tokenDirFile(schemeId, endpoint)
 	tokenPath := path.Join(schemeDir, tokenFileName)
 	if fi, err := os.Stat(tokenPath); err != nil {
+		if os.IsNotExist(err) {
+			err = ErrAuthNotFound
+		}
 		return nil, err
 	} else if fi.Mode().IsDir() || !fi.Mode().IsRegular() {
 		return nil, fmt.Errorf("Cannot retrieve %s token for endpoint %s: not a regular file", schemeId, endpoint)
 	}
 	authContents, err := ioutil.ReadFile(tokenPath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			err = ErrAuthNotFound
+		}
 		return nil, err
 	}
 	auth := strings.TrimSpace(string(authContents))
@@ -90,7 +96,7 @@ func (s *FileAuthStore) Get(schemeId string, endpoint string) (*TokenInfo, error
 // Set stores a token.
 func (s *FileAuthStore) Set(token *TokenInfo, endpoint string) error {
 	tokenDir, tokenName := s.tokenDirFile(token.SchemeId, endpoint)
-	err := os.MkdirAll(s.authDir, 0700)
+	err := os.MkdirAll(tokenDir, 0700)
 	if err != nil {
 		return err
 	}

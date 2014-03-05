@@ -139,19 +139,19 @@ type spacecraftResource string
 
 func (_ spacecraftResource) Capabilities() rbac.PermissionMap { return SpacecraftCapabilities }
 func (r spacecraftResource) URI() string                      { return string(r) }
-func (_ spacecraftResource) ParentOf() rbac.Resource               { return nil }
+func (_ spacecraftResource) ParentOf() rbac.Resource          { return nil }
 
 type medicalResource string
 
 func (_ medicalResource) Capabilities() rbac.PermissionMap { return MedicalCapabilities }
 func (r medicalResource) URI() string                      { return string(r) }
-func (_ medicalResource) ParentOf() rbac.Resource               { return nil }
+func (_ medicalResource) ParentOf() rbac.Resource          { return nil }
 
 type bureaucraticResource string
 
 func (_ bureaucraticResource) Capabilities() rbac.PermissionMap { return BureaucraticCapabilities }
 func (r bureaucraticResource) URI() string                      { return string(r) }
-func (_ bureaucraticResource) ParentOf() rbac.Resource               { return nil }
+func (_ bureaucraticResource) ParentOf() rbac.Resource          { return nil }
 
 func NewRbacSuite(s rbac.Store) *RbacSuite {
 	return &RbacSuite{
