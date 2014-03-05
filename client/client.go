@@ -34,7 +34,7 @@ type AuthClient struct {
 // a server is advertising. These are mandatory for an HTTP 401
 // Not Authorized response, but may also be given in other responses.
 func WantsAuth(resp *http.Response) []*TokenInfo {
-	wwwAuths, has := resp.Header["WWW-Authenticate"]
+	wwwAuths, has := resp.Header[http.CanonicalHeaderKey("WWW-Authenticate")]
 	if !has {
 		return nil
 	}
@@ -42,8 +42,9 @@ func WantsAuth(resp *http.Response) []*TokenInfo {
 	for _, wwwAuth := range wwwAuths {
 		token, err := ParseTokenInfo(wwwAuth)
 		if err != nil {
-			tokens = append(tokens, token)
+			continue
 		}
+		tokens = append(tokens, token)
 	}
 	return tokens
 }
