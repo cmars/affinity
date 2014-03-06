@@ -94,7 +94,7 @@ func (c *serveCmd) Main() {
 		}
 	}
 
-	s.Schemes.Register(usso.NewOauthCli(c.extName))
+	s.Schemes.Register(usso.NewOauthCli(c.extName, &affinity.PasswordUnavailable{}))
 	err = http.ListenAndServe(c.addr, s)
 	die(err)
 }

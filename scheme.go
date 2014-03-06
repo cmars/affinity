@@ -47,7 +47,7 @@ func (pu *PasswordUnavailable) Password() (string, error) {
 	return "", fmt.Errorf("Password is unavailable")
 }
 
-var ErrUnauthorized error = fmt.Errorf("HTTP request not authenticated")
+var ErrUnauthorized error = fmt.Errorf("HTTP request not authorized")
 
 // Scheme is a system which identifies principal user identities, and
 // provides a means for those users to prove their identity.
@@ -57,26 +57,27 @@ type Scheme interface {
 	Name() string
 
 	// Authenticate checks an HTTP request for a positive identity.
-	// Returns the user identity if valie, ErrRequestUnauthorized if
-	// missing or invalid.
+	// Returns the user identity if authentication is valid, otherwise
+	// ErrUnauthorized as a prompt to authenticate.
 	Authenticate(r *http.Request) (user User, err error)
 }
 
-// TokenScheme
+// TokenScheme creates authorization tokens for identities and validates them.
 type TokenScheme interface {
 	Scheme
 
 	// Authorize creates an authorization token for the given identity.
-	// Some implementations may support multiple factors
+	// Implementations may support multiple factors
 	// (passphrases, private keys, etc.) when creating the authorization.
-	Authorize(user User, prov PasswordProvider) (token *TokenInfo, err error)
+	Authorize(user User) (token *TokenInfo, err error)
 
 	// Validate checks an authorization token created by Authorize. If valid,
 	// returns the user identity for whom it was created.
 	Validate(token *TokenInfo) (user User, err error)
 }
 
-// HandshakeScheme handles handshake identity protocols such as OpenID or OAuth 2.
+// HandshakeScheme handles handshake identity protocols such as OpenID or OAuth 2
+// for HTTP services.
 type HandshakeScheme interface {
 	Scheme
 
@@ -84,8 +85,9 @@ type HandshakeScheme interface {
 	// This interaction requires the client to be a web browser in most cases.
 	SignIn(w http.ResponseWriter, r *http.Request) (err error)
 
-	// Authenticated handles a redirect callback to the application from the identity provider.
-	// Implementations will typically create a session here for the established identity.
+	// Authenticated handles a redirect to an application "callback" endpoint from the
+	// identity provider. Implementations will typically create a session here for the
+	// established identity.
 	Authenticated(w http.ResponseWriter, r *http.Request)
 }
 
@@ -94,6 +96,7 @@ type SchemeMap struct {
 	schemes map[string]Scheme
 }
 
+// NewSchemeMap creates an empty SchemeMap.
 func NewSchemeMap() *SchemeMap {
 	return &SchemeMap{
 		schemes: make(map[string]Scheme),
@@ -111,6 +114,7 @@ func (sm *SchemeMap) Register(scheme Scheme) error {
 	return nil
 }
 
+// Scheme retrieves the scheme by name.
 func (sm *SchemeMap) Scheme(name string) Scheme {
 	s, has := sm.schemes[name]
 	if !has {
@@ -119,6 +123,7 @@ func (sm *SchemeMap) Scheme(name string) Scheme {
 	return s
 }
 
+// HandshakeAll retrieves all registered handshake schemes.
 func (sm *SchemeMap) HandshakeAll() []HandshakeScheme {
 	var result []HandshakeScheme
 	for _, v := range sm.schemes {
@@ -129,6 +134,7 @@ func (sm *SchemeMap) HandshakeAll() []HandshakeScheme {
 	return result
 }
 
+// Token retrieves a token scheme by name, or nil.
 func (sm *SchemeMap) Token(name string) TokenScheme {
 	s, has := sm.schemes[name]
 	if !has {
@@ -140,6 +146,7 @@ func (sm *SchemeMap) Token(name string) TokenScheme {
 	return nil
 }
 
+// Handshake retrieves a handshake scheme by name, or nil.
 func (sm *SchemeMap) Handshake(name string) HandshakeScheme {
 	s, has := sm.schemes[name]
 	if !has {

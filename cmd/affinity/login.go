@@ -67,7 +67,8 @@ func (c *loginCmd) Main() {
 	if err != nil {
 		die(err)
 	}
-	schemes.Register(usso.NewOauthCli(fmt.Sprintf("affinity@%s", serverUrl.Host)))
+	schemes.Register(usso.NewOauthCli(fmt.Sprintf("affinity@%s", serverUrl.Host),
+		&PasswordPrompter{}))
 
 	user, err := ParseUser(c.user)
 	if err != nil {
@@ -79,7 +80,7 @@ func (c *loginCmd) Main() {
 		die(fmt.Errorf("Scheme '%s' is not supported", user.Scheme))
 	}
 
-	token, err := scheme.Authorize(user, &PasswordPrompter{})
+	token, err := scheme.Authorize(user)
 	if err != nil {
 		die(err)
 	}

@@ -39,7 +39,8 @@ func (s *scheme) Name() string { return "usso" }
 
 type tokenScheme struct {
 	scheme
-	token string
+	passProv PasswordProvider
+	token    string
 }
 
 type handshakeScheme struct {
@@ -56,11 +57,12 @@ func NewOpenIdWeb(token string, sessionStore sessions.Store) HandshakeScheme {
 	}
 }
 
-func NewOauthCli(token string) TokenScheme {
+func NewOauthCli(token string, passProv PasswordProvider) TokenScheme {
 	return &tokenScheme{
 		scheme: scheme{
 			token: token,
 		},
+		passProv: passProv,
 	}
 }
 
@@ -103,12 +105,12 @@ func (s *tokenScheme) Authenticate(r *http.Request) (User, error) {
 	return User{}, ErrUnauthorized
 }
 
-func (s *tokenScheme) Authorize(user User, prov PasswordProvider) (token *TokenInfo, err error) {
+func (s *tokenScheme) Authorize(user User) (token *TokenInfo, err error) {
 	if user.Identity.Scheme != s.Name() {
 		return nil, fmt.Errorf("Cannot authorize scheme %s", user.Identity.Scheme)
 	}
 
-	pass, err := prov.Password()
+	pass, err := s.passProv.Password()
 	if err != nil {
 		return nil, err
 	}
