@@ -157,3 +157,28 @@ func (sm *SchemeMap) Handshake(name string) HandshakeScheme {
 	}
 	return nil
 }
+
+// AuthRequestToken matches and validates RFC 2617 authorization headers
+// as a principal user identity.
+func AuthRequestToken(scheme TokenScheme, r *http.Request) (User, error) {
+	auths, has := r.Header[http.CanonicalHeaderKey("Authorization")]
+	if !has {
+		return User{}, fmt.Errorf("Request not authenticated")
+	}
+	for _, auth := range auths {
+		// TODO: quick prefix check of the auth string might be faster
+		token, err := ParseTokenInfo(auth)
+		if err != nil {
+			continue
+		}
+		if token.SchemeId != scheme.Name() {
+			continue
+		}
+		user, err := scheme.Validate(token)
+		if err != nil {
+			continue
+		}
+		return user, nil
+	}
+	return User{}, ErrUnauthorized
+}

@@ -58,7 +58,7 @@ func NewAuthServer(store rbac.Store) *AuthServer {
 }
 
 func (s *AuthServer) Authenticate(r *http.Request) (user User, err error) {
-	auths, has := r.Header["Authorization"]
+	auths, has := r.Header[http.CanonicalHeaderKey("Authorization")]
 	if !has {
 		// If the request does not have an authorization header,
 		// fallback on the handshake method.

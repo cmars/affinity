@@ -83,26 +83,7 @@ func (s *handshakeScheme) Authenticated(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *tokenScheme) Authenticate(r *http.Request) (User, error) {
-	auths, has := r.Header["Authorization"]
-	if !has {
-		return User{}, fmt.Errorf("Request not authenticated")
-	}
-	for _, auth := range auths {
-		// TODO: quick prefix check of the auth string might be faster
-		token, err := ParseTokenInfo(auth)
-		if err != nil {
-			continue
-		}
-		if token.SchemeId != s.Name() {
-			continue
-		}
-		user, err := s.Validate(token)
-		if err != nil {
-			continue
-		}
-		return user, nil
-	}
-	return User{}, ErrUnauthorized
+	return AuthRequestToken(s, r)
 }
 
 func (s *tokenScheme) Authorize(user User) (token *TokenInfo, err error) {

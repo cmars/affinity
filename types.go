@@ -126,11 +126,14 @@ func (g Group) Contains(p Principal) bool {
 	return false
 }
 
+// TokenInfo stores any RFC 2617 authorization token data,
+// including custom provider tokens.
 type TokenInfo struct {
 	SchemeId string
 	Values   url.Values
 }
 
+// NewTokenInfo creates a new TokenInfo instance.
 func NewTokenInfo(schemeId string) *TokenInfo {
 	return &TokenInfo{
 		SchemeId: schemeId,
@@ -138,10 +141,12 @@ func NewTokenInfo(schemeId string) *TokenInfo {
 	}
 }
 
+// Realm gets the standard 'realm' value, as specified in RFC 2617.
 func (t *TokenInfo) Realm() string {
 	return t.Values.Get("realm")
 }
 
+// ParseTokenInfo parses an RFC 2617 format authorization header.
 func ParseTokenInfo(header string) (*TokenInfo, error) {
 	parts := strings.SplitN(header, " ", 2)
 	if len(parts) < 2 {
@@ -166,6 +171,7 @@ func ParseTokenInfo(header string) (*TokenInfo, error) {
 	return token, nil
 }
 
+// Serialize renders an RFC 2617-compatible authorization string.
 func (t *TokenInfo) Serialize() string {
 	var buf bytes.Buffer
 	fmt.Fprintf(&buf, "%s", t.SchemeId)
