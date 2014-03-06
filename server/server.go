@@ -50,15 +50,11 @@ func (r *Response) Send(w http.ResponseWriter) {
 type AuthServer struct {
 	*mux.Router
 	Store   rbac.Store
-	schemes *SchemeMap
+	Schemes *SchemeMap
 }
 
 func NewAuthServer(store rbac.Store) *AuthServer {
 	return &AuthServer{mux.NewRouter(), store, NewSchemeMap()}
-}
-
-func (s *AuthServer) RegisterScheme(scheme Scheme) {
-	s.schemes.Register(scheme)
 }
 
 func (s *AuthServer) Authenticate(r *http.Request) (user User, err error) {
@@ -66,7 +62,7 @@ func (s *AuthServer) Authenticate(r *http.Request) (user User, err error) {
 	if !has {
 		// If the request does not have an authorization header,
 		// fallback on the handshake method.
-		for _, scheme := range s.schemes.HandshakeAll() {
+		for _, scheme := range s.Schemes.HandshakeAll() {
 			user, err := scheme.Authenticate(r)
 			if err != nil {
 				return user, err
@@ -79,7 +75,7 @@ func (s *AuthServer) Authenticate(r *http.Request) (user User, err error) {
 		if err != nil {
 			continue
 		}
-		scheme := s.schemes.Token(token.SchemeId)
+		scheme := s.Schemes.Token(token.SchemeId)
 		if scheme == nil {
 			continue
 		}

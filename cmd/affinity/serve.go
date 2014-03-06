@@ -94,7 +94,7 @@ func (c *serveCmd) Main() {
 		}
 	}
 
-	s.RegisterScheme(usso.NewOauthCli(c.extName))
+	s.Schemes.Register(usso.NewOauthCli(c.extName))
 	err = http.ListenAndServe(c.addr, s)
 	die(err)
 }
