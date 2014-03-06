@@ -23,6 +23,7 @@ package common
 import (
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 
@@ -107,23 +108,15 @@ func (oid *OpenID) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, err := oid.sessionStore.Get(r, "realm")
+	session, err := oid.sessionStore.Get(r, oid.realm)
 	if err != nil {
 		oid.respError(w, "Server error", http.StatusInternalServerError,
 			fmt.Errorf("Failed to get session: %v", err))
 		return
 	}
 
-	cookieUrl, err := url.Parse(originalUrl)
-	if err != nil {
-		oid.respError(w, "Server error", http.StatusInternalServerError,
-			fmt.Errorf("Original URL invalid: %v", err))
-		return
-	}
-
 	session.Options = &sessions.Options{
 		Path:     "/",
-		Domain:   cookieUrl.Host,
 		MaxAge:   86400 * 7, // One week
 		Secure:   true,      // Enforce https, same-origin policy
 		HttpOnly: true,      // http://blog.codinghorror.com/protecting-your-cookies-httponly/
@@ -131,7 +124,7 @@ func (oid *OpenID) Callback(w http.ResponseWriter, r *http.Request) {
 	for k, v := range values {
 		session.Values[k] = v
 	}
-	err = oid.sessionStore.Save(r, w, session)
+	err = sessions.Save(r, w)
 	if err != nil {
 		oid.respError(w, "Server error", http.StatusInternalServerError,
 			fmt.Errorf("Failed to save session: %v", err))
