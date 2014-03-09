@@ -22,129 +22,157 @@ package common
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
-	"strings"
-	"time"
 
 	"code.google.com/p/go-uuid/uuid"
+	"github.com/gorilla/sessions"
 	"github.com/kushaldas/openid.go/src/openid"
+
+	"github.com/juju/affinity"
 )
 
-var (
-	nonceStore     = &openid.SimpleNonceStore{Store: make(map[string][]*openid.Nonce)}
-	discoveryCache = &openid.SimpleDiscoveryCache{}
-	urlStore       = make(map[string]string)
-)
+type OpenID struct {
+	nonceStore     *openid.SimpleNonceStore
+	discoveryCache *openid.SimpleDiscoveryCache
+	urlStore       map[string]string
+	realm          string
+	sessionStore   sessions.Store
+}
 
-func Callback(w http.ResponseWriter, r *http.Request) {
+func NewSimpleOpenID(realm string, sessionStore sessions.Store) *OpenID {
+	return &OpenID{
+		nonceStore:     &openid.SimpleNonceStore{Store: make(map[string][]*openid.Nonce)},
+		discoveryCache: &openid.SimpleDiscoveryCache{},
+		urlStore:       make(map[string]string), // TODO: needs to expire handshakes
+		realm:          realm,
+		sessionStore:   sessionStore,
+	}
+}
+
+func (oid *OpenID) respError(w http.ResponseWriter, msg string, statusCode int, cause error) {
+	log.Println(cause)
+	http.Error(w, msg, statusCode)
+	return
+}
+
+func (oid *OpenID) Callback(w http.ResponseWriter, r *http.Request) {
 	// verify the response
-	fullURL := fmt.Sprintf("http://%v%v", r.Host, r.URL.String())
-	_, err := openid.Verify(fullURL, discoveryCache, nonceStore)
-
+	fullURL := fmt.Sprintf("https://%v%v", r.Host, r.URL.String())
+	_, err := openid.Verify(fullURL, oid.discoveryCache, oid.nonceStore)
 	if err != nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		oid.respError(w, "Unauthorized", http.StatusUnauthorized,
+			fmt.Errorf("OpenID verification failed: %v", err))
+		return
 	}
 
 	// verified then find the original stored url and redirect the use back to their original request
-	values, err := url.ParseQuery(r.URL.String())
+	values, err := url.ParseQuery(r.URL.RawQuery)
 	if err != nil {
-		http.Error(w, "Server error", http.StatusInternalServerError)
+		oid.respError(w, "Server error", http.StatusInternalServerError,
+			fmt.Errorf("Failed to parse URL query string: %v", r.URL))
 		return
 	}
-	returnTo, ok := values["openid.return_to"]
 
+	returnTo := values.Get("openid.return_to")
+	if returnTo == "" {
+		oid.respError(w, "Server error", http.StatusInternalServerError,
+			fmt.Errorf("openid.return_to not set in callback: %v", values))
+		return
+	}
+
+	cbuuid := values.Get("cbuuid")
+	if cbuuid == "" {
+		oid.respError(w, "Server error", http.StatusInternalServerError,
+			fmt.Errorf("cbuuid not set in callback: %v", values))
+		return
+	}
+
+	originalUrl, ok := oid.urlStore[cbuuid]
 	if !ok {
-		http.Error(w, "Server error", http.StatusInternalServerError)
+		oid.respError(w, "Server error", http.StatusInternalServerError,
+			fmt.Errorf("cbuuid %v not found in local store", cbuuid))
 		return
 	}
 
-	// the url will be in the form http://<server>:<port>/openidcallback/cbuuid=<uuid>
-	// so do the cheap thing and split on =
-	splitData := strings.Split(returnTo[0], "=")
+	// We're done with the callback, remove it.
+	// TODO: we should use an expiring kv store for these to prevent DoS.
+	delete(oid.urlStore, cbuuid)
 
-	if len(splitData) < 2 {
-		http.Error(w, "Server error", http.StatusInternalServerError)
-		return
-	}
-
-	cbuuid := splitData[len(splitData)-1]
-	originalUrl, ok := urlStore[cbuuid]
+	_, ok = values["openid.sreg.email"]
 	if !ok {
-		http.Error(w, "Server error", http.StatusInternalServerError)
+		oid.respError(w, "Server error", http.StatusInternalServerError,
+			fmt.Errorf("openid.sreq.email missing from OpenID response"))
 		return
 	}
 
-	delete(urlStore, cbuuid)
-	expiration := time.Now().Add(time.Hour * 24)
-	cookieUrl, _ := url.Parse(originalUrl)
-
-	cookie := http.Cookie{
-		Name:    "washed",
-		Value:   "true",
-		Path:    "/",
-		Domain:  cookieUrl.Host,
-		Expires: expiration}
-
-	http.SetCookie(w, &cookie)
-
-	emailId, ok := values["openid.sreg.email"]
-	if !ok {
-		http.Error(w, "Server error", http.StatusInternalServerError)
+	session, err := oid.sessionStore.Get(r, oid.realm)
+	if err != nil {
+		oid.respError(w, "Server error", http.StatusInternalServerError,
+			fmt.Errorf("Failed to get session: %v", err))
 		return
 	}
 
-	// TODO look up the emailId in affinity and replace with a affinity obfuscated id
-	affinityId := emailId[0]
-
-	cookie = http.Cookie{
-		Name:    "affinityId",
-		Value:   affinityId,
-		Path:    "/",
-		Domain:  cookieUrl.Host,
-		Expires: expiration}
-
-	http.SetCookie(w, &cookie)
+	session.Options = &sessions.Options{
+		Path:     "/",
+		MaxAge:   86400 * 7, // One week
+		Secure:   true,      // Enforce https, same-origin policy
+		HttpOnly: true,      // http://blog.codinghorror.com/protecting-your-cookies-httponly/
+	}
+	for k, v := range values {
+		session.Values[k] = v
+	}
+	err = sessions.Save(r, w)
+	if err != nil {
+		oid.respError(w, "Server error", http.StatusInternalServerError,
+			fmt.Errorf("Failed to save session: %v", err))
+		return
+	}
 
 	http.Redirect(w, r, originalUrl, http.StatusSeeOther)
-
 }
 
-func Authenticate(authorityURL string, w http.ResponseWriter, r *http.Request) bool {
-
-	// check for cookie holding flag
-	if washed(r.Cookies()) {
-		return true
+func (oid *OpenID) Authenticate(r *http.Request) (*sessions.Session, error) {
+	session, err := oid.sessionStore.Get(r, oid.realm)
+	if err != nil {
+		return nil, err
 	}
+	if session.IsNew || oid.Email(session) == "" {
+		return nil, affinity.ErrUnauthorized
+	}
+	return session, nil
+}
 
+func (oid *OpenID) Email(session *sessions.Session) string {
+	email, has := session.Values["openid.sreg.email"]
+	if !has {
+		return ""
+	}
+	s, is := email.([]string)
+	if !is {
+		return ""
+	}
+	if len(s) == 0 {
+		return ""
+	}
+	return s[0]
+}
+
+func (oid *OpenID) OpRedirect(authorityURL string, w http.ResponseWriter, r *http.Request) error {
 	// not present. redirect to authority for authentication
 	cbuuid := uuid.NewRandom()
 
 	// store the original user requested url
-	originalUrl := fmt.Sprintf("http://%v%v", r.Host, r.URL.String())
-	urlStore[cbuuid.String()] = originalUrl
+	originalUrl := fmt.Sprintf("https://%v%v", r.Host, r.URL.String())
+	oid.urlStore[cbuuid.String()] = originalUrl
 
 	// now redirect to the authority
-	fullURL := fmt.Sprintf("http://%v%v/cbuuid=%v", r.Host, "/openidcallback", cbuuid)
-	redirectUrl, err := openid.RedirectUrl(authorityURL, fullURL, "")
-
-	if err == nil {
+	fullURL := fmt.Sprintf("https://%v%v?cbuuid=%v", r.Host, "/openidcallback", cbuuid)
+	if redirectUrl, err := openid.RedirectUrl(authorityURL, fullURL, ""); err == nil {
 		http.Redirect(w, r, redirectUrl, http.StatusSeeOther)
-		return true
+		return nil
 	} else {
-		http.Error(w, "Server error", http.StatusInternalServerError)
-		return false
+		return err
 	}
-
-	return true
-}
-
-// washed checks for and returns the washed cookie value, defaulting to false.
-func washed(cookies []*http.Cookie) bool {
-	for _, cookie := range cookies {
-		if cookie.Name == "washed" {
-			return cookie.Value == "true"
-		}
-	}
-	return false
 }

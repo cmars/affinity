@@ -19,16 +19,13 @@ package server
 
 import (
 	"bytes"
-	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 
 	"github.com/gorilla/mux"
 
 	. "github.com/juju/affinity"
-	"github.com/juju/affinity/group"
+	"github.com/juju/affinity/rbac"
 )
 
 type Response struct {
@@ -50,163 +47,43 @@ func (r *Response) Send(w http.ResponseWriter) {
 	w.Write(r.Bytes())
 }
 
-type Server struct {
+type AuthServer struct {
 	*mux.Router
-	store   Store
-	schemes SchemeMap
+	Store   rbac.Store
+	Schemes *SchemeMap
 }
 
-func NewServer(store Store) *Server {
-	s := &Server{mux.NewRouter(), store, make(SchemeMap)}
-	s.HandleFunc("/{group}/", s.HandleGroup)
-	s.HandleFunc("/{group}/{user}/", s.HandleUser)
-	return s
+func NewAuthServer(store rbac.Store) *AuthServer {
+	return &AuthServer{mux.NewRouter(), store, NewSchemeMap()}
 }
 
-func (s *Server) RegisterScheme(scheme Scheme) {
-	s.schemes[scheme.Name()] = scheme
-}
-
-// AuthenticateRequestId uses the schemes underlying mechanism to authenticate the id of a user request
-func (s *Server) AuthenticateRequestId(scheme string, w http.ResponseWriter, r *http.Request) (bool, error) {
-
-	sch, ok := s.schemes[scheme]
-	if !ok {
-		return false, fmt.Errorf("Unknown scheme:[%v]", scheme)
-	}
-
-	return sch.Authenticator().Authenticate(w, r), nil
-
-}
-
-func (s *Server) Callback(scheme string, w http.ResponseWriter, r *http.Request) {
-
-	sch, ok := s.schemes[scheme]
-	if ok {
-		sch.Authenticator().Callback(w, r)
-	}
-
-}
-
-func (s *Server) Authenticate(r *http.Request) (user User, err error) {
-	authStr := r.Header.Get("Authorization")
-	if authStr == "" {
-		return User{}, fmt.Errorf("Request not authenticated")
-	}
-	values, err := url.ParseQuery(authStr)
-	if err != nil {
-		return User{}, err
-	}
-	schemeId := values.Get("Affinity-Scheme")
-	if schemeId == "" {
-		return User{}, fmt.Errorf("Scheme not specified")
-	}
-	scheme, has := s.schemes[schemeId]
+func (s *AuthServer) Authenticate(r *http.Request) (user User, err error) {
+	auths, has := r.Header[http.CanonicalHeaderKey("Authorization")]
 	if !has {
-		return User{}, fmt.Errorf("unsupported scheme:", schemeId)
-	}
-	userId, err := scheme.Validator().Validate(values)
-	if err != nil {
-		return User{}, err
-	}
-	user = User{Identity{schemeId, userId}}
-	if user.Wildcard() {
-		return User{}, fmt.Errorf("Cannot authenticate a wildcard user")
-	}
-	return user, nil
-}
-
-func (s *Server) HandleGroup(w http.ResponseWriter, r *http.Request) {
-	resp := s.handleGroup(r)
-	resp.Send(w)
-}
-
-func (s *Server) handleGroup(r *http.Request) *Response {
-	log.Println(r)
-	vars := mux.Vars(r)
-	groupId := vars["group"]
-	authUser, err := s.Authenticate(r)
-	if err != nil {
-		return &Response{
-			Error:      fmt.Errorf("auth failed: %v", err),
-			StatusCode: http.StatusUnauthorized,
+		// If the request does not have an authorization header,
+		// fallback on the handshake method.
+		for _, scheme := range s.Schemes.HandshakeAll() {
+			user, err := scheme.Authenticate(r)
+			if err != nil {
+				return user, err
+			}
 		}
+		return User{}, ErrUnauthorized
 	}
-
-	groupSrv := group.NewGroupService(s.store, authUser)
-
-	switch r.Method {
-	case "PUT":
-		err = groupSrv.AddGroup(groupId)
-		return &Response{Error: err}
-	case "GET":
-		g, err := groupSrv.Group(groupId)
+	for _, auth := range auths {
+		token, err := ParseTokenInfo(auth)
 		if err != nil {
-			return &Response{Error: err}
+			continue
 		}
-		out, err := json.Marshal(g)
-		resp := &Response{Error: err}
-		resp.Write(out)
-		return resp
-	case "DELETE":
-		err = groupSrv.RemoveGroup(groupId)
-		return &Response{Error: err}
-	}
-	return &Response{
-		Error:      fmt.Errorf("unsupported HTTP method: %v", r.Method),
-		StatusCode: http.StatusMethodNotAllowed,
-	}
-}
-
-func (s *Server) HandleUser(w http.ResponseWriter, r *http.Request) {
-	resp := s.handleUser(r)
-	resp.Send(w)
-}
-
-func (s *Server) handleUser(r *http.Request) *Response {
-	log.Println(r)
-	vars := mux.Vars(r)
-	groupId := vars["group"]
-	userString := vars["user"]
-	user, err := ParseUser(userString)
-	if err != nil {
-		return &Response{Error: err}
-	}
-
-	_, has := s.schemes[user.Scheme]
-	if !has {
-		return &Response{Error: fmt.Errorf("unsupported scheme: %s", user.Scheme)}
-	}
-
-	authUser, err := s.Authenticate(r)
-	if err != nil {
-		return &Response{
-			Error:      fmt.Errorf("auth failed: %v", err),
-			StatusCode: http.StatusUnauthorized,
+		scheme := s.Schemes.Token(token.SchemeId)
+		if scheme == nil {
+			continue
 		}
-	}
-
-	groupSrv := group.NewGroupService(s.store, authUser)
-
-	switch r.Method {
-	case "GET":
-		has, err := groupSrv.CheckMember(groupId, user)
+		user, err := scheme.Authenticate(r)
 		if err != nil {
-			return &Response{Error: err}
+			continue
 		}
-		if !has {
-			return &Response{StatusCode: http.StatusNotFound}
-		}
-		return &Response{}
-	case "PUT":
-		err = groupSrv.AddMember(groupId, user)
-		return &Response{Error: err}
-	case "DELETE":
-		err = groupSrv.RemoveMember(groupId, user)
-		return &Response{Error: err}
+		return user, nil
 	}
-	return &Response{
-		Error:      fmt.Errorf("unsupported HTTP method: %s", r.Method),
-		StatusCode: http.StatusMethodNotAllowed,
-	}
+	return User{}, ErrUnauthorized
 }

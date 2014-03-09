@@ -1,9 +1,9 @@
-package affinity_test
+package rbac_test
 
 import (
 	"testing"
 
-	. "github.com/juju/affinity"
+	"github.com/juju/affinity/rbac"
 )
 
 /*
@@ -14,21 +14,21 @@ import (
  */
 
 // ReadPerm is permission to read the board messages
-var ReadPerm Permission = NewPermission("read-msg")
+var ReadPerm rbac.Permission = rbac.NewPermission("read-msg")
 
 // ListPerm is permission to list the recent board threads
-var ListPerm Permission = NewPermission("list-threads")
+var ListPerm rbac.Permission = rbac.NewPermission("list-threads")
 
 // PostPerm is permission to post to the board
-var PostPerm Permission = NewPermission("post-msg")
+var PostPerm rbac.Permission = rbac.NewPermission("post-msg")
 
 // StickyPerm is permission to sticky threads.
-var StickyPerm Permission = NewPermission("sticky-thread")
+var StickyPerm rbac.Permission = rbac.NewPermission("sticky-thread")
 
 // DeletePerm is permission to delete threads.
-var DeletePerm Permission = NewPermission("delete-thread")
+var DeletePerm rbac.Permission = rbac.NewPermission("delete-thread")
 
 // BanPerm is permission to ban users for some period of time.
-var BanPerm Permission = NewPermission("ban-user")
+var BanPerm rbac.Permission = rbac.NewPermission("ban-user")
 
 func ExamplePermission(t *testing.T) {}

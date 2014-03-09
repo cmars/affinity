@@ -28,7 +28,8 @@ import (
 	"github.com/juju/affinity"
 	"github.com/juju/affinity/group"
 	"github.com/juju/affinity/providers/usso"
-	. "github.com/juju/affinity/server"
+	"github.com/juju/affinity/rbac"
+	. "github.com/juju/affinity/server/group"
 	"github.com/juju/affinity/storage/mongo"
 )
 
@@ -78,11 +79,11 @@ func (c *serveCmd) Main() {
 		die(err)
 	}
 
-	s := NewServer(store)
+	s := NewGroupServer(store)
 
 	// Grant service role to configured admins
 	for _, serviceAdmin := range c.serviceAdmins {
-		admin := affinity.NewAdmin(store, group.GroupRoles)
+		admin := rbac.NewAdmin(store, group.GroupRoles)
 		u, err := affinity.ParseUser(serviceAdmin)
 		if err != nil {
 			die(err)
@@ -93,7 +94,7 @@ func (c *serveCmd) Main() {
 		}
 	}
 
-	s.RegisterScheme(usso.NewScheme(c.extName))
+	s.Schemes.Register(usso.NewOauthCli(c.extName, &affinity.PasswordUnavailable{}))
 	err = http.ListenAndServe(c.addr, s)
 	die(err)
 }

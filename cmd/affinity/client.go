@@ -27,6 +27,7 @@ import (
 
 	. "github.com/juju/affinity"
 	"github.com/juju/affinity/client"
+	"github.com/juju/affinity/client/group"
 )
 
 type groupCmd struct {
@@ -34,7 +35,7 @@ type groupCmd struct {
 	url     string
 	group   string
 	homeDir string
-	client  *client.Client
+	client  *group.GroupClient
 }
 
 func groupFlags(h cmdHandler, cmd *groupCmd) {
@@ -60,15 +61,11 @@ func (c *groupCmd) Main(h cmdHandler) {
 		die(err)
 	}
 
-	authStore, err := client.NewFileAuthStore(c.homeDir, serverUrl)
+	authStore, err := client.NewFileAuthStore(c.homeDir)
 	if err != nil {
 		die(err)
 	}
-	auth, err := authStore.Read()
-	if err != nil {
-		die(err)
-	}
-	c.client = &client.Client{Auth: auth, Url: c.url}
+	c.client = group.NewGroupClient(serverUrl, authStore)
 }
 
 type userCmd struct {

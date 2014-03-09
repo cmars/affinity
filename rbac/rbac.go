@@ -15,10 +15,12 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-package affinity
+package rbac
 
 import (
 	"fmt"
+
+	. "github.com/juju/affinity"
 )
 
 var ErrNotFound error = fmt.Errorf("Not found")
@@ -191,7 +193,7 @@ func (s *Access) matchRole(pr Principal, r Resource, matchFn func(Role) bool) (b
 	// Add scheme wildcard grants
 	if user, is := pr.(User); is && !user.Wildcard() {
 		wildcardGrants, err := s.Store.RoleGrants(
-			User{Identity{user.Scheme, AnyId}}.String(), r.URI(), true)
+			User{Identity: Identity{user.Scheme, AnyId}}.String(), r.URI(), true)
 		if err != nil {
 			return false, err
 		}

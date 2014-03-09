@@ -15,7 +15,7 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-package affinity
+package rbac
 
 // Store defines the backend storage API for the affinitya role-based
 // access control system. The interface is designed to be low-level enough

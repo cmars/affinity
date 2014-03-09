@@ -18,7 +18,7 @@
 package group
 
 import (
-	. "github.com/juju/affinity"
+	. "github.com/juju/affinity/rbac"
 )
 
 // AffinityGroupsUri defines a namespace for roles affecting the entire

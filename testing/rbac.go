@@ -21,12 +21,13 @@ import (
 	. "launchpad.net/gocheck"
 
 	. "github.com/juju/affinity"
+	"github.com/juju/affinity/rbac"
 )
 
 type RbacTests struct {
 	*StoreTests
-	Access *Access
-	Admin  *Admin
+	Access *rbac.Access
+	Admin  *rbac.Admin
 }
 
 type RbacSuite struct {
@@ -45,7 +46,7 @@ type FillBucketPerm struct{}
 
 func (p FillBucketPerm) Perm() string { return "fill-bucket" }
 
-var FacilitiesCapabilities PermissionMap = NewPermissionMap(EmptyBucketPerm{}, FillBucketPerm{}, UseThingPerm{})
+var FacilitiesCapabilities rbac.PermissionMap = rbac.NewPermissionMap(EmptyBucketPerm{}, FillBucketPerm{}, UseThingPerm{})
 
 type ControlShipPerm struct{}
 
@@ -55,26 +56,26 @@ type BoardShipPerm struct{}
 
 func (p BoardShipPerm) Perm() string { return "board-ship" }
 
-var SpacecraftCapabilities PermissionMap = NewPermissionMap(ControlShipPerm{}, BoardShipPerm{})
+var SpacecraftCapabilities rbac.PermissionMap = rbac.NewPermissionMap(ControlShipPerm{}, BoardShipPerm{})
 
 type PerformSurgeryPerm struct{}
 
 func (p PerformSurgeryPerm) Perm() string { return "perform-surgery" }
 
-var MedicalCapabilities PermissionMap = NewPermissionMap(PerformSurgeryPerm{})
+var MedicalCapabilities rbac.PermissionMap = rbac.NewPermissionMap(PerformSurgeryPerm{})
 
 type FilePaperworkPerm struct{}
 
 func (p FilePaperworkPerm) Perm() string { return "file-paperwork" }
 
-var BureaucraticCapabilities PermissionMap = NewPermissionMap(FilePaperworkPerm{})
+var BureaucraticCapabilities rbac.PermissionMap = rbac.NewPermissionMap(FilePaperworkPerm{})
 
 type characterRole struct {
 	name         string
-	capabilities PermissionMap
+	capabilities rbac.PermissionMap
 }
 
-func (r *characterRole) Capabilities() PermissionMap {
+func (r *characterRole) Capabilities() rbac.PermissionMap {
 	return r.capabilities
 }
 
@@ -82,36 +83,36 @@ func (r *characterRole) Role() string {
 	return r.name
 }
 
-func (r *characterRole) Can(do Permission) bool {
+func (r *characterRole) Can(do rbac.Permission) bool {
 	_, has := r.capabilities[do.Perm()]
 	return has
 }
 
-var UserRole *characterRole = &characterRole{"user", NewPermissionMap(
+var UserRole *characterRole = &characterRole{"user", rbac.NewPermissionMap(
 	UseThingPerm{},
 )}
 
-var JanitorRole *characterRole = &characterRole{"janitor", NewPermissionMap(
+var JanitorRole *characterRole = &characterRole{"janitor", rbac.NewPermissionMap(
 	EmptyBucketPerm{}, FillBucketPerm{},
 )}
 
-var PilotRole *characterRole = &characterRole{"pilot", NewPermissionMap(
+var PilotRole *characterRole = &characterRole{"pilot", rbac.NewPermissionMap(
 	BoardShipPerm{}, ControlShipPerm{},
 )}
 
-var PassengerRole *characterRole = &characterRole{"passenger", NewPermissionMap(
+var PassengerRole *characterRole = &characterRole{"passenger", rbac.NewPermissionMap(
 	BoardShipPerm{},
 )}
 
-var BureaucratRole *characterRole = &characterRole{"bureaucrat", NewPermissionMap(
+var BureaucratRole *characterRole = &characterRole{"bureaucrat", rbac.NewPermissionMap(
 	FilePaperworkPerm{},
 )}
 
-var DoctorRole *characterRole = &characterRole{"doctor", NewPermissionMap(
+var DoctorRole *characterRole = &characterRole{"doctor", rbac.NewPermissionMap(
 	PerformSurgeryPerm{},
 )}
 
-var FuturamaRoles RoleMap = NewRoleMap(
+var FuturamaRoles rbac.RoleMap = rbac.NewRoleMap(
 	JanitorRole,
 	PilotRole,
 	PassengerRole,
@@ -125,9 +126,9 @@ type facilitiesResource struct {
 	name   string
 }
 
-func (_ facilitiesResource) Capabilities() PermissionMap { return FacilitiesCapabilities }
-func (r facilitiesResource) URI() string                 { return r.name }
-func (r facilitiesResource) ParentOf() Resource {
+func (_ facilitiesResource) Capabilities() rbac.PermissionMap { return FacilitiesCapabilities }
+func (r facilitiesResource) URI() string                      { return r.name }
+func (r facilitiesResource) ParentOf() rbac.Resource {
 	if r.parent == nil {
 		return nil
 	}
@@ -136,27 +137,27 @@ func (r facilitiesResource) ParentOf() Resource {
 
 type spacecraftResource string
 
-func (_ spacecraftResource) Capabilities() PermissionMap { return SpacecraftCapabilities }
-func (r spacecraftResource) URI() string                 { return string(r) }
-func (_ spacecraftResource) ParentOf() Resource          { return nil }
+func (_ spacecraftResource) Capabilities() rbac.PermissionMap { return SpacecraftCapabilities }
+func (r spacecraftResource) URI() string                      { return string(r) }
+func (_ spacecraftResource) ParentOf() rbac.Resource          { return nil }
 
 type medicalResource string
 
-func (_ medicalResource) Capabilities() PermissionMap { return MedicalCapabilities }
-func (r medicalResource) URI() string                 { return string(r) }
-func (_ medicalResource) ParentOf() Resource          { return nil }
+func (_ medicalResource) Capabilities() rbac.PermissionMap { return MedicalCapabilities }
+func (r medicalResource) URI() string                      { return string(r) }
+func (_ medicalResource) ParentOf() rbac.Resource          { return nil }
 
 type bureaucraticResource string
 
-func (_ bureaucraticResource) Capabilities() PermissionMap { return BureaucraticCapabilities }
-func (r bureaucraticResource) URI() string                 { return string(r) }
-func (_ bureaucraticResource) ParentOf() Resource          { return nil }
+func (_ bureaucraticResource) Capabilities() rbac.PermissionMap { return BureaucraticCapabilities }
+func (r bureaucraticResource) URI() string                      { return string(r) }
+func (_ bureaucraticResource) ParentOf() rbac.Resource          { return nil }
 
-func NewRbacSuite(s Store) *RbacSuite {
+func NewRbacSuite(s rbac.Store) *RbacSuite {
 	return &RbacSuite{
 		&RbacTests{&StoreTests{s},
-			NewAccess(s, FuturamaRoles),
-			NewAdmin(s, FuturamaRoles),
+			rbac.NewAccess(s, FuturamaRoles),
+			rbac.NewAdmin(s, FuturamaRoles),
 		},
 	}
 }
@@ -164,7 +165,7 @@ func NewRbacSuite(s Store) *RbacSuite {
 func (s *RbacSuite) SetUp(c *C) {
 	building := facilitiesResource{name: "facilities:building"}
 	for _, grant := range futuramaGrants {
-		var rc Resource
+		var rc rbac.Resource
 		switch grant.resource {
 		case "facilities:bucket":
 			rc = facilitiesResource{name: grant.resource, parent: &building}

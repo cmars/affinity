@@ -24,84 +24,125 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/gorilla/sessions"
 	"launchpad.net/usso"
 
 	. "github.com/juju/affinity"
 	"github.com/juju/affinity/providers/common"
 )
 
-type UssoScheme struct {
-	PasswordProvider PasswordProvider
-	Token            string
+type scheme struct {
+	token string
 }
 
-func NewScheme(host string) *UssoScheme {
-	return &UssoScheme{Token: fmt.Sprintf("Affinity groups on %s", host)}
+func (s *scheme) Name() string { return "usso" }
+
+type tokenScheme struct {
+	scheme
+	passProv PasswordProvider
+	token    string
 }
 
-func (s *UssoScheme) password() (string, error) {
-	pp := s.PasswordProvider
-	if pp == nil {
-		pp = &PasswordPrompter{}
+type handshakeScheme struct {
+	scheme
+	openID *common.OpenID
+}
+
+func NewOpenIdWeb(token string, sessionStore sessions.Store) HandshakeScheme {
+	return &handshakeScheme{
+		scheme: scheme{
+			token: token,
+		},
+		openID: common.NewSimpleOpenID(token, sessionStore),
 	}
-	return pp.Password()
 }
 
-func (s *UssoScheme) Callback(w http.ResponseWriter, r *http.Request) {
-	common.Callback(w, r)
+func NewOauthCli(token string, passProv PasswordProvider) TokenScheme {
+	return &tokenScheme{
+		scheme: scheme{
+			token: token,
+		},
+		passProv: passProv,
+	}
 }
 
-func (s *UssoScheme) Authenticate(w http.ResponseWriter, r *http.Request) bool {
-	rv := common.Authenticate(usso.ProductionUbuntuSSOServer.LoginURL(), w, r)
-	return rv
+func (s *handshakeScheme) Authenticate(r *http.Request) (User, error) {
+	session, err := s.openID.Authenticate(r)
+	if err != nil {
+		return User{}, err
+	}
+	return User{Identity{Scheme: s.Name(), Id: s.openID.Email(session)}}, nil
 }
 
-func (s *UssoScheme) Auth(id string) (values url.Values, err error) {
-	pass, err := s.password()
+func (s *handshakeScheme) SignIn(w http.ResponseWriter, r *http.Request) error {
+	return s.openID.OpRedirect(usso.ProductionUbuntuSSOServer.LoginURL(), w, r)
+}
+
+func (s *handshakeScheme) Authenticated(w http.ResponseWriter, r *http.Request) {
+	s.openID.Callback(w, r)
+}
+
+func (s *tokenScheme) Authenticate(r *http.Request) (User, error) {
+	return AuthRequestToken(s, r)
+}
+
+func (s *tokenScheme) Authorize(user User) (token *TokenInfo, err error) {
+	if user.Identity.Scheme != s.Name() {
+		return nil, fmt.Errorf("Cannot authorize scheme %s", user.Identity.Scheme)
+	}
+
+	pass, err := s.passProv.Password()
 	if err != nil {
 		return nil, err
 	}
 
-	ssoData, err := usso.ProductionUbuntuSSOServer.GetToken(id, pass, s.Token)
+	ssoData, err := usso.ProductionUbuntuSSOServer.GetToken(user.Identity.Id, pass, s.token)
 	if err != nil {
 		return nil, err
 	}
 
-	return url.Values{
-		"ConsumerKey":     []string{ssoData.ConsumerKey},
-		"ConsumerSecret":  []string{ssoData.ConsumerSecret},
-		"TokenKey":        []string{ssoData.TokenKey},
-		"TokenName":       []string{ssoData.TokenName},
-		"TokenSecret":     []string{ssoData.TokenSecret},
-		"Affinity-Scheme": []string{s.Name()},
+	return &TokenInfo{
+		SchemeId: s.Name(),
+		Values: url.Values{
+			"ConsumerKey":    []string{ssoData.ConsumerKey},
+			"ConsumerSecret": []string{ssoData.ConsumerSecret},
+			"TokenKey":       []string{ssoData.TokenKey},
+			"TokenName":      []string{ssoData.TokenName},
+			"TokenSecret":    []string{ssoData.TokenSecret},
+		},
 	}, nil
 }
 
-func (s *UssoScheme) Validate(values url.Values) (id string, err error) {
-	consumerKey := values.Get("ConsumerKey")
+func (s *tokenScheme) Validate(token *TokenInfo) (User, error) {
+	var err error
+	luser := User{}
+	if token.SchemeId != s.Name() {
+		return luser, fmt.Errorf("%s: Not an Ubuntu SSO token", token.SchemeId)
+	}
+	consumerKey := token.Values.Get("ConsumerKey")
 	if consumerKey == "" {
 		err = fmt.Errorf("No ConsumerKey provided in authorization")
-		return "", err
+		return luser, err
 	}
-	consumerSecret := values.Get("ConsumerSecret")
+	consumerSecret := token.Values.Get("ConsumerSecret")
 	if consumerSecret == "" {
 		err = fmt.Errorf("No ConsumerSecret provided in authorization")
-		return "", err
+		return luser, err
 	}
-	tokenKey := values.Get("TokenKey")
+	tokenKey := token.Values.Get("TokenKey")
 	if tokenKey == "" {
 		err = fmt.Errorf("No TokenKey provided in authorization")
-		return "", err
+		return luser, err
 	}
-	tokenSecret := values.Get("TokenSecret")
+	tokenSecret := token.Values.Get("TokenSecret")
 	if tokenSecret == "" {
 		err = fmt.Errorf("No TokenSecret provided in authorization")
-		return "", err
+		return luser, err
 	}
-	tokenName := values.Get("TokenName")
+	tokenName := token.Values.Get("TokenName")
 	if tokenName == "" {
 		err = fmt.Errorf("No TokenName provided in authorization")
-		return "", err
+		return luser, err
 	}
 	// construct sso data collection for validation
 	ssoData := usso.SSOData{
@@ -114,13 +155,13 @@ func (s *UssoScheme) Validate(values url.Values) (id string, err error) {
 	resultRaw, err := usso.ProductionUbuntuSSOServer.GetAccounts(&ssoData)
 	if err != nil {
 		log.Printf("Failed to validate USSO token data: %v", err)
-		return "", err
+		return luser, err
 	}
 	result := map[string]interface{}{}
 	err = json.Unmarshal([]byte(resultRaw), &result)
 	if err != nil {
 		log.Printf("Failed to decode USSO data: %v", err)
-		return "", err
+		return luser, err
 	}
 
 	// check if the USS response has the necessary fields
@@ -129,20 +170,12 @@ func (s *UssoScheme) Validate(values url.Values) (id string, err error) {
 	_, hasTokens := result["tokens"]
 	if !hasEmail || !hasDisplayName || !hasTokens {
 		err = fmt.Errorf("SSO validation failed, missing required fields")
-		return "", err
+		return luser, err
 	}
 	email, ok := result["email"].(string)
 	if !ok || email == "" {
 		err = fmt.Errorf("Invalid SSO data received for %v", result["email"])
-		return "", err
+		return luser, err
 	}
-	return email, nil
+	return User{Identity{Scheme: s.Name(), Id: email}}, nil
 }
-
-func (s *UssoScheme) Authorizer() SchemeAuthorizer { return s }
-
-func (s *UssoScheme) Authenticator() SchemeAuthenticator { return s }
-
-func (s *UssoScheme) Validator() SchemeValidator { return s }
-
-func (s *UssoScheme) Name() string { return "usso" }

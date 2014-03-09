@@ -20,11 +20,11 @@ package testing
 import (
 	. "launchpad.net/gocheck"
 
-	. "github.com/juju/affinity"
+	"github.com/juju/affinity/rbac"
 )
 
 type StoreTests struct {
-	Store Store
+	Store rbac.Store
 }
 
 func (s *StoreTests) SetUp(c *C) {
@@ -38,7 +38,7 @@ type StoreSuite struct {
 	*StoreTests
 }
 
-func NewStoreSuite(s Store) *StoreSuite {
+func NewStoreSuite(s rbac.Store) *StoreSuite {
 	return &StoreSuite{&StoreTests{s}}
 }
 

@@ -21,7 +21,7 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 
-	"github.com/juju/affinity"
+	"github.com/juju/affinity/rbac"
 	"github.com/juju/affinity/util"
 )
 
@@ -43,9 +43,9 @@ type MongoStore struct {
 
 func grantError(err error) error {
 	if mgo.IsDup(err) {
-		return affinity.ErrAlreadyGranted
+		return rbac.ErrAlreadyGranted
 	} else if err == mgo.ErrNotFound {
-		return affinity.ErrNotFound
+		return rbac.ErrNotFound
 	}
 	return err
 }
