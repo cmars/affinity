@@ -40,13 +40,13 @@ func (s *MongoSuite) SetUpTest(c *C) {
 	s.reset()
 	s.Session = juju_testing.MgoServer.MustDial()
 	{
-		store, err := mongo.NewMongoStore(s.Session, "affinity_store_suite")
+		store, err := mongo.NewMongoStore(s.Session, "affinity_store_suite", "", "")
 		c.Assert(err, IsNil)
 		s.StoreSuite = testing.NewStoreSuite(store)
 		s.StoreTests.SetUp(c)
 	}
 	{
-		store, err := mongo.NewMongoStore(s.Session, "affinity_rbac_suite")
+		store, err := mongo.NewMongoStore(s.Session, "affinity_rbac_suite", "", "")
 		c.Assert(err, IsNil)
 		s.RbacSuite = testing.NewRbacSuite(store)
 		s.RbacTests.SetUp(c)

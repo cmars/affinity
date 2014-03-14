@@ -50,12 +50,12 @@ func grantError(err error) error {
 	return err
 }
 
-func DialMongoStore(url string, dbname string) (*MongoStore, error) {
+func DialMongoStore(url string, dbname, dbuser, dbpass string) (*MongoStore, error) {
 	session, err := mgo.Dial(url)
 	if err != nil {
 		return nil, err
 	}
-	return NewMongoStore(session, dbname)
+	return NewMongoStore(session, dbname, dbuser, dbpass)
 }
 
 var indexes map[string]mgo.Index = map[string]mgo.Index{
@@ -73,9 +73,15 @@ var indexes map[string]mgo.Index = map[string]mgo.Index{
 	},
 }
 
-func NewMongoStore(session *mgo.Session, dbname string) (*MongoStore, error) {
+func NewMongoStore(session *mgo.Session, dbname, dbuser, dbpass string) (*MongoStore, error) {
 	store := &MongoStore{Session: session}
 	store.db = store.DB(dbname)
+	if dbuser != "" {
+		err := store.db.Login(dbuser, dbpass)
+		if err != nil {
+			return nil, err
+		}
+	}
 	store.grants = store.db.C("grants")
 	store.groups = store.db.C("groups")
 	store.members = store.db.C("members")
