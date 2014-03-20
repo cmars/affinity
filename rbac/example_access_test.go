@@ -6,7 +6,7 @@ import (
 
 	. "github.com/juju/affinity"
 	"github.com/juju/affinity/rbac"
-	"github.com/juju/affinity/storage/mem"
+	"github.com/juju/affinity/rbac/storage/mem"
 )
 
 // MessageBoard defines the interface for a message board service.
@@ -66,7 +66,7 @@ func (mb *mbConn) Post(msg string) (int, error) {
 func ExampleAccess(t *testing.T) {
 	// Let's set up an RBAC store. We'll use the in-memory store
 	// for this example. You should use something more permanent like the Mongo store.
-	store := mem.NewStore()
+	store := mem.NewFactStore()
 	// Admin lets us grant and revoke roles
 	admin := rbac.NewAdmin(store, MessageBoardRoles)
 	// Anonymous scheme users can lurk and that's all
@@ -80,7 +80,7 @@ func ExampleAccess(t *testing.T) {
 	// Connect to the message board service as this user
 	// In a web application, you'll likely derive the user from http.Request, using
 	// OAuth, OpenID, cookies, etc.
-	mb := &mbConn{&rbac.Access{store, MessageBoardRoles}, anon}
+	mb := &mbConn{rbac.NewAccess(store, MessageBoardRoles), anon}
 
 	// Print the first page of the message board. The MessageBoard will check
 	// Access.Can(user, ListPerm, MessageBoardResource).
@@ -93,7 +93,7 @@ func ExampleAccess(t *testing.T) {
 	// A tame authenticated user appears. Reattach as tame user now.
 	// In real life, this would likely be in a distinct http.Handler with its own session.
 	tame := User{Identity: Identity{"gooble", "YourRealName"}}
-	mb = &mbConn{&rbac.Access{store, MessageBoardRoles}, tame}
+	mb = &mbConn{rbac.NewAccess(store, MessageBoardRoles), tame}
 
 	// Post a message.
 	_, err = mb.Post("check 'em")

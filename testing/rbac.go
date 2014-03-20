@@ -128,7 +128,7 @@ type facilitiesResource struct {
 
 func (_ facilitiesResource) Capabilities() rbac.PermissionMap { return FacilitiesCapabilities }
 func (r facilitiesResource) URI() string                      { return r.name }
-func (r facilitiesResource) ParentOf() rbac.Resource {
+func (r facilitiesResource) Parent() rbac.Resource {
 	if r.parent == nil {
 		return nil
 	}
@@ -139,23 +139,23 @@ type spacecraftResource string
 
 func (_ spacecraftResource) Capabilities() rbac.PermissionMap { return SpacecraftCapabilities }
 func (r spacecraftResource) URI() string                      { return string(r) }
-func (_ spacecraftResource) ParentOf() rbac.Resource          { return nil }
+func (_ spacecraftResource) Parent() rbac.Resource            { return nil }
 
 type medicalResource string
 
 func (_ medicalResource) Capabilities() rbac.PermissionMap { return MedicalCapabilities }
 func (r medicalResource) URI() string                      { return string(r) }
-func (_ medicalResource) ParentOf() rbac.Resource          { return nil }
+func (_ medicalResource) Parent() rbac.Resource            { return nil }
 
 type bureaucraticResource string
 
 func (_ bureaucraticResource) Capabilities() rbac.PermissionMap { return BureaucraticCapabilities }
 func (r bureaucraticResource) URI() string                      { return string(r) }
-func (_ bureaucraticResource) ParentOf() rbac.Resource          { return nil }
+func (_ bureaucraticResource) Parent() rbac.Resource            { return nil }
 
-func NewRbacSuite(s rbac.Store) *RbacSuite {
+func NewRbacSuite(s rbac.FactStore) *RbacSuite {
 	return &RbacSuite{
-		&RbacTests{&StoreTests{s},
+		&RbacTests{&StoreTests{rbac.NewGroupFacts(s)},
 			rbac.NewAccess(s, FuturamaRoles),
 			rbac.NewAdmin(s, FuturamaRoles),
 		},

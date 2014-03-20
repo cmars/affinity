@@ -27,8 +27,8 @@ import (
 	. "launchpad.net/gocheck"
 
 	. "github.com/juju/affinity"
+	"github.com/juju/affinity/rbac/storage/mem"
 	"github.com/juju/affinity/server"
-	"github.com/juju/affinity/storage/mem"
 )
 
 func TestServerSuite(t *testing.T) { TestingT(t) }
@@ -74,7 +74,7 @@ func (s *MockScheme) Validate(token *TokenInfo) (user User, err error) {
 }
 
 func (ss *ServerSuite) SetUpTest(c *C) {
-	s := server.NewAuthServer(mem.NewStore())
+	s := server.NewAuthServer(mem.NewFactStore())
 	s.Schemes.Register(&MockScheme{})
 	s.HandleFunc("/whoami", func(w http.ResponseWriter, r *http.Request) {
 		user, err := s.Authenticate(r)

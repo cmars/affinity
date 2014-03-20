@@ -24,12 +24,12 @@ import (
 )
 
 type StoreTests struct {
-	Store rbac.Store
+	Facts *rbac.GroupFacts
 }
 
 func (s *StoreTests) SetUp(c *C) {
 	for _, grant := range futuramaGrants {
-		err := s.Store.InsertGrant(grant.principal, grant.role, grant.resource)
+		err := s.Facts.Assert(rbac.Fact{"affinity:rbac", grant.principal, grant.role, grant.resource})
 		c.Assert(err, IsNil)
 	}
 }
@@ -38,8 +38,8 @@ type StoreSuite struct {
 	*StoreTests
 }
 
-func NewStoreSuite(s rbac.Store) *StoreSuite {
-	return &StoreSuite{&StoreTests{s}}
+func NewStoreSuite(s rbac.FactStore) *StoreSuite {
+	return &StoreSuite{&StoreTests{rbac.NewGroupFacts(s)}}
 }
 
 type grantData struct {
@@ -63,19 +63,19 @@ var futuramaGrants []grantData = []grantData{
 func (s *StoreTests) TestFlatGrantStore(c *C) {
 	var has bool
 	var err error
-	has, err = s.Store.HasGrant("test:bender", "passenger", "spacecraft:ship", false)
+	has, err = s.Facts.Exists(rbac.Fact{"affinity:rbac", "test:bender", "passenger", "spacecraft:ship"})
 	c.Assert(has, Equals, true)
 	c.Assert(err, IsNil)
 
-	has, err = s.Store.HasGrant("test:bender", "pilot", "spacecraft:ship", false)
+	has, err = s.Facts.Exists(rbac.Fact{"affinity:rbac", "test:bender", "pilot", "spacecraft:ship"})
 	c.Assert(has, Equals, false)
 	c.Assert(err, IsNil)
 
-	has, err = s.Store.HasGrant("test:bender", "janitor", "facilities:bucket", false)
+	has, err = s.Facts.Exists(rbac.Fact{"affinity:rbac", "test:bender", "janitor", "facilities:bucket"})
 	c.Assert(has, Equals, false)
 	c.Assert(err, IsNil)
 
-	has, err = s.Store.HasGrant("test:santa_claus", "pilot", "spacecraft:ship", false)
+	has, err = s.Facts.Exists(rbac.Fact{"affinity:rbac", "test:santa_claus", "pilot", "spacecraft:ship"})
 	c.Assert(has, Equals, false)
 	c.Assert(err, IsNil)
 }
@@ -84,24 +84,26 @@ func (s *StoreTests) TestGroupGrants(c *C) {
 	var has bool
 	var err error
 	// Let's create a deliver group
-	s.Store.AddGroup("delivery-team")
+	s.Facts.AddGroup("delivery-team")
 	for _, employee := range []string{
 		"test:fry", "test:leela", "test:bender", "test:amy",
 	} {
-		s.Store.AddMember("delivery-team", employee)
+		s.Facts.AddMember("delivery-team", employee)
 	}
-	groups, err := s.Store.GroupsOf("test:fry", true)
+	groups, err := s.Facts.Groups("test:fry")
 	c.Assert(err, IsNil)
 	c.Assert(groups, HasLen, 1)
 	c.Assert(groups[0], Equals, "delivery-team")
 	// Let's grant a role to the group
-	err = s.Store.InsertGrant("delivery-team", "pickup-delivery", "planet-express:postbox")
+	err = s.Facts.Assert(rbac.Fact{"affinity:rbac", "delivery-team", "pickup-delivery", "planet-express:postbox"})
 	c.Assert(err, IsNil)
-	// Fry should be able to pick up a delivery from a post box.
-	has, err = s.Store.HasGrant("test:fry", "pickup-delivery", "planet-express:postbox", true)
-	c.Assert(has, Equals, true)
+	// Fry should be able to pick up a delivery from a post box, if we look up all containing groups.
+	matched, err := s.Facts.MatchAll(rbac.Fact{"affinity:rbac", "test:fry", "pickup-delivery", "planet-express:postbox"})
 	c.Assert(err, IsNil)
-	// However this grant was to a team of which he is a member
-	has, err = s.Store.HasGrant("test:fry", "pickup-delivery", "planet-express:postbox", false)
+	c.Assert(matched, HasLen, 1)
+	// MatchAll returns the matching fact, which applies to the group.
+	c.Check(matched[0].Subject, Equals, "delivery-team")
+	// However this grant was to a team of which he is a member, not directly to Fry.
+	has, err = s.Facts.Exists(rbac.Fact{"affinity:rbac", "test:fry", "pickup-delivery", "planet-express:postbox"})
 	c.Assert(has, Equals, false)
 }

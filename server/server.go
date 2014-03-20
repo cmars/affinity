@@ -49,11 +49,11 @@ func (r *Response) Send(w http.ResponseWriter) {
 
 type AuthServer struct {
 	*mux.Router
-	Store   rbac.Store
+	Store   rbac.FactStore
 	Schemes *SchemeMap
 }
 
-func NewAuthServer(store rbac.Store) *AuthServer {
+func NewAuthServer(store rbac.FactStore) *AuthServer {
 	return &AuthServer{mux.NewRouter(), store, NewSchemeMap()}
 }
 

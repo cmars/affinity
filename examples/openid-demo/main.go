@@ -18,7 +18,7 @@ import (
 	"github.com/juju/affinity/examples"
 	"github.com/juju/affinity/providers/usso"
 	"github.com/juju/affinity/rbac"
-	rbac_mongo "github.com/juju/affinity/storage/mongo"
+	rbac_mongo "github.com/juju/affinity/rbac/storage/mongo"
 )
 
 const dataDir = "./"
@@ -53,7 +53,7 @@ func main() {
 		die(fmt.Errorf("Failed to connect to store:%v", err))
 	}
 
-	rbacStore, err := rbac_mongo.NewMongoStore(session, *mgoDbName)
+	rbacStore, err := rbac_mongo.NewFactStore(session, session.DB(*mgoDbName), "demo_rbac")
 	if err != nil {
 		die(fmt.Errorf("Failed to find store:%v", err))
 	}
