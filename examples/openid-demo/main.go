@@ -29,7 +29,7 @@ var certFile *string = flag.String("cert", "cert.pem", "SSL certificate")
 var keyFile *string = flag.String("key", "key.pem", "SSL private key")
 
 type DemoHandler struct {
-	Store  rbac.Store
+	Rbac   *rbac.Admin
 	Scheme affinity.HandshakeScheme
 }
 
@@ -64,7 +64,7 @@ func main() {
 	)
 
 	demoContext := DemoHandler{
-		Store:  rbacStore,
+		Rbac:   rbac.NewAdmin(rbacStore, rbac.NewRoleMap()),
 		Scheme: usso.NewOpenIdWeb("openid-demo", sessionStore),
 	}
 

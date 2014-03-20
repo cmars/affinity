@@ -223,7 +223,7 @@ func (s *Admin) Grant(pr Principal, ro Role, rs Resource) error {
 	})
 }
 
-// Revoke removes a prior grant of permissions to a principal on a resource.
+// Revoke removes a prior grant specifically.
 func (s *Admin) Revoke(pr Principal, ro Role, rs Resource) error {
 	return s.facts.Deny(Fact{
 		Topic:     rbacTopic,
@@ -231,4 +231,21 @@ func (s *Admin) Revoke(pr Principal, ro Role, rs Resource) error {
 		Predicate: ro.Role(),
 		Object:    rs.URI(),
 	})
+}
+
+func (s *Admin) RevokeAll(pr Principal) error {
+	facts, err := s.facts.MatchAll(Fact{Topic: rbacTopic, Subject: pr.String()})
+	if err != nil {
+		return err
+	}
+	return s.facts.Deny(facts...)
+}
+
+// Remove all grants that were made on a given resource.
+func (s *Admin) RemoveAll(rs Resource) error {
+	facts, err := s.facts.MatchAll(Fact{Topic: rbacTopic, Object: rs.URI()})
+	if err != nil {
+		return err
+	}
+	return s.facts.Deny(facts...)
 }

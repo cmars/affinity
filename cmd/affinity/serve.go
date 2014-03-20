@@ -30,7 +30,7 @@ import (
 	"github.com/juju/affinity/providers/usso"
 	"github.com/juju/affinity/rbac"
 	"github.com/juju/affinity/rbac/storage/mongo"
-	"github.com/juju/affinity/server/group"
+	server_group "github.com/juju/affinity/server/group"
 )
 
 type serveCmd struct {
@@ -79,7 +79,7 @@ func (c *serveCmd) Main() {
 		die(err)
 	}
 
-	s := NewGroupServer(store)
+	s := server_group.NewGroupServer(store)
 
 	// Grant service role to configured admins
 	for _, serviceAdmin := range c.serviceAdmins {

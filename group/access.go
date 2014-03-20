@@ -28,12 +28,17 @@ import (
 type GroupService struct {
 	*rbac.Admin
 	AsUser User
+	facts  *rbac.GroupFacts
 }
 
 // NewGroupService creates a new group service using the given storage, with access
 // to operations as the given user.
-func NewGroupService(store rbac.Store, asUser User) *GroupService {
-	return &GroupService{rbac.NewAdmin(store, GroupRoles), asUser}
+func NewGroupService(store rbac.FactStore, asUser User) *GroupService {
+	return &GroupService{
+		Admin:  rbac.NewAdmin(store, GroupRoles),
+		AsUser: asUser,
+		facts:  rbac.NewGroupFacts(store),
+	}
 }
 
 // canGroup tests if a user or group has a specific permission on a group.
@@ -62,7 +67,7 @@ func (s *GroupService) CheckMember(groupId string, member Principal) (bool, erro
 		return false, err
 	}
 	principal := member.String()
-	groups, err := s.Store.GroupsOf(principal, true)
+	groups, err := s.facts.Groups(principal)
 	if err != nil {
 		return false, nil
 	}
@@ -81,7 +86,7 @@ func (s *GroupService) AddGroup(groupId string) error {
 	if err = s.canService(s.AsUser, AddGroupPerm{}); err != nil {
 		return err
 	}
-	err = s.Store.AddGroup(groupId)
+	err = s.facts.AddGroup(groupId)
 	if err != nil {
 		return err
 	}
@@ -94,19 +99,14 @@ func (s *GroupService) RemoveGroup(groupId string) error {
 	if err = s.canGroup(s.AsUser, RemoveGroupPerm{}, groupId); err != nil {
 		return err
 	}
+	// Remove all role grants on the group as a resource
+	if err = s.RemoveAll(groupResource(groupId)); err != nil {
+		return err
+	}
 	// Remove the group
-	err = s.Store.RemoveGroup(groupId)
+	err = s.facts.RemoveGroup(groupId)
 	if err != nil {
 		return err
-	}
-	// Since the group is a resource we grant access to,
-	// we must clean those access grants up.
-	principals, roles, err := s.Store.ResourceGrants(groupId)
-	if err != nil {
-		return err
-	}
-	for i := range principals {
-		s.Store.RemoveGrant(principals[i], roles[i], groupId)
 	}
 	return nil
 }
@@ -118,7 +118,7 @@ func (s *GroupService) AddMember(groupId string, principal Principal) error {
 		return err
 	}
 	// Add the group membership. Should error if duplicate.
-	err = s.Store.AddMember(groupId, principal.String())
+	err = s.facts.AddMember(groupId, principal.String())
 	if err != nil {
 		return err
 	}
@@ -132,7 +132,7 @@ func (s *GroupService) RemoveMember(groupId string, principal Principal) error {
 		return err
 	}
 	// Remove the group membership if exists.
-	err = s.Store.RemoveMember(groupId, principal.String())
+	err = s.facts.RemoveMember(groupId, principal.String())
 	if err != nil {
 		return err
 	}

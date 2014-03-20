@@ -133,7 +133,7 @@ func (_ groupResource) Capabilities() PermissionMap { return ownerCapabilities }
 
 func (gr groupResource) URI() string { return string(gr) }
 
-func (gr groupResource) ParentOf() Resource { return ServiceResource }
+func (gr groupResource) Parent() Resource { return ServiceResource }
 
 type serviceResource struct{}
 
@@ -143,7 +143,7 @@ func (_ serviceResource) Capabilities() PermissionMap {
 
 func (_ serviceResource) URI() string { return AffinityGroupsUri }
 
-func (_ serviceResource) ParentOf() Resource { return nil }
+func (_ serviceResource) Parent() Resource { return nil }
 
 var ServiceResource Resource = serviceResource{}
 

@@ -36,7 +36,7 @@ type GroupServer struct {
 	*server.AuthServer
 }
 
-func NewGroupServer(store rbac.Store) *GroupServer {
+func NewGroupServer(store rbac.FactStore) *GroupServer {
 	s := &GroupServer{server.NewAuthServer(store)}
 	s.HandleFunc("/{group}/", s.HandleGroup)
 	s.HandleFunc("/{group}/{user}/", s.HandleUser)
