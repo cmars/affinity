@@ -20,7 +20,7 @@ package client
 import (
 	"net/http"
 
-	. "github.com/juju/affinity"
+	"github.com/juju/affinity"
 )
 
 // AuthClient is an *http.Client that is able to automatically
@@ -33,14 +33,14 @@ type AuthClient struct {
 // WantsAuth returns information on the authentication schemes
 // a server is advertising. These are mandatory for an HTTP 401
 // Not Authorized response, but may also be given in other responses.
-func WantsAuth(resp *http.Response) []*TokenInfo {
+func WantsAuth(resp *http.Response) []*affinity.TokenInfo {
 	wwwAuths, has := resp.Header[http.CanonicalHeaderKey("WWW-Authenticate")]
 	if !has {
 		return nil
 	}
-	var tokens []*TokenInfo
+	var tokens []*affinity.TokenInfo
 	for _, wwwAuth := range wwwAuths {
-		token, err := ParseTokenInfo(wwwAuth)
+		token, err := affinity.ParseTokenInfo(wwwAuth)
 		if err != nil {
 			continue
 		}
@@ -50,12 +50,12 @@ func WantsAuth(resp *http.Response) []*TokenInfo {
 }
 
 // Authorize adds any stored auth tokens from the requested schemes to an *http.Request.
-func (c *AuthClient) Authorize(req *http.Request, schemes []*TokenInfo) error {
+func (c *AuthClient) Authorize(req *http.Request, schemes []*affinity.TokenInfo) error {
 	var err error
 	// Update request with obtained credentials.
 	req.Header.Del("Authorization")
 	for _, scheme := range schemes {
-		var token *TokenInfo
+		var token *affinity.TokenInfo
 		token, err = c.Store.Get(scheme.SchemeId, req.Host)
 		if err == ErrAuthNotFound {
 			continue

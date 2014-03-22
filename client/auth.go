@@ -24,7 +24,7 @@ import (
 	"path"
 	"strings"
 
-	. "github.com/juju/affinity"
+	"github.com/juju/affinity"
 )
 
 const AuthDirName = "auth"
@@ -35,9 +35,9 @@ var ErrAuthNotFound error = fmt.Errorf("authorization not found")
 // AuthTokenStore stores authentication tokens by their scheme and endpoint.
 type AuthStore interface {
 	// Get reads and decodes the authentication token from storage.
-	Get(schemeId string, endpoint string) (*TokenInfo, error)
+	Get(schemeId string, endpoint string) (*affinity.TokenInfo, error)
 	// Set stores an authentication token.
-	Set(token *TokenInfo, endpoint string) error
+	Set(token *affinity.TokenInfo, endpoint string) error
 }
 
 // FileAuthStore stores an affinity client's authentication credential
@@ -64,7 +64,7 @@ func (s *FileAuthStore) tokenDirFile(schemeId string, endpoint string) (string, 
 }
 
 // Get retrieves a token for a scheme and endpoint.
-func (s *FileAuthStore) Get(schemeId string, endpoint string) (*TokenInfo, error) {
+func (s *FileAuthStore) Get(schemeId string, endpoint string) (*affinity.TokenInfo, error) {
 	schemeDir, tokenFileName := s.tokenDirFile(schemeId, endpoint)
 	tokenPath := path.Join(schemeDir, tokenFileName)
 	if fi, err := os.Stat(tokenPath); err != nil {
@@ -83,7 +83,7 @@ func (s *FileAuthStore) Get(schemeId string, endpoint string) (*TokenInfo, error
 		return nil, err
 	}
 	auth := strings.TrimSpace(string(authContents))
-	token, err := ParseTokenInfo(auth)
+	token, err := affinity.ParseTokenInfo(auth)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +94,7 @@ func (s *FileAuthStore) Get(schemeId string, endpoint string) (*TokenInfo, error
 }
 
 // Set stores a token.
-func (s *FileAuthStore) Set(token *TokenInfo, endpoint string) error {
+func (s *FileAuthStore) Set(token *affinity.TokenInfo, endpoint string) error {
 	tokenDir, tokenName := s.tokenDirFile(token.SchemeId, endpoint)
 	err := os.MkdirAll(tokenDir, 0700)
 	if err != nil {

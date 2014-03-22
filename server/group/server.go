@@ -25,7 +25,7 @@ import (
 
 	"github.com/gorilla/mux"
 
-	. "github.com/juju/affinity"
+	"github.com/juju/affinity"
 	"github.com/juju/affinity/group"
 	"github.com/juju/affinity/rbac"
 	"github.com/juju/affinity/server"
@@ -96,7 +96,7 @@ func (s *GroupServer) handleUser(r *http.Request) *server.Response {
 	vars := mux.Vars(r)
 	groupId := vars["group"]
 	userString := vars["user"]
-	user, err := ParseUser(userString)
+	user, err := affinity.ParseUser(userString)
 	if err != nil {
 		return &server.Response{Error: err}
 	}

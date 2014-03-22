@@ -27,7 +27,7 @@ import (
 	"github.com/gorilla/sessions"
 	"launchpad.net/usso"
 
-	. "github.com/juju/affinity"
+	"github.com/juju/affinity"
 	"github.com/juju/affinity/providers/common"
 )
 
@@ -39,7 +39,7 @@ func (s *scheme) Name() string { return "usso" }
 
 type tokenScheme struct {
 	scheme
-	passProv PasswordProvider
+	passProv affinity.PasswordProvider
 	token    string
 }
 
@@ -48,7 +48,7 @@ type handshakeScheme struct {
 	openID *common.OpenID
 }
 
-func NewOpenIdWeb(token string, sessionStore sessions.Store) HandshakeScheme {
+func NewOpenIdWeb(token string, sessionStore sessions.Store) affinity.HandshakeScheme {
 	return &handshakeScheme{
 		scheme: scheme{
 			token: token,
@@ -57,7 +57,7 @@ func NewOpenIdWeb(token string, sessionStore sessions.Store) HandshakeScheme {
 	}
 }
 
-func NewOauthCli(token string, passProv PasswordProvider) TokenScheme {
+func NewOauthCli(token string, passProv affinity.PasswordProvider) affinity.TokenScheme {
 	return &tokenScheme{
 		scheme: scheme{
 			token: token,
@@ -66,12 +66,12 @@ func NewOauthCli(token string, passProv PasswordProvider) TokenScheme {
 	}
 }
 
-func (s *handshakeScheme) Authenticate(r *http.Request) (User, error) {
+func (s *handshakeScheme) Authenticate(r *http.Request) (affinity.User, error) {
 	session, err := s.openID.Authenticate(r)
 	if err != nil {
-		return User{}, err
+		return affinity.User{}, err
 	}
-	return User{Identity{Scheme: s.Name(), Id: s.openID.Email(session)}}, nil
+	return affinity.User{affinity.Identity{Scheme: s.Name(), Id: s.openID.Email(session)}}, nil
 }
 
 func (s *handshakeScheme) SignIn(w http.ResponseWriter, r *http.Request) error {
@@ -82,11 +82,11 @@ func (s *handshakeScheme) Authenticated(w http.ResponseWriter, r *http.Request) 
 	s.openID.Callback(w, r)
 }
 
-func (s *tokenScheme) Authenticate(r *http.Request) (User, error) {
-	return AuthRequestToken(s, r)
+func (s *tokenScheme) Authenticate(r *http.Request) (affinity.User, error) {
+	return affinity.AuthRequestToken(s, r)
 }
 
-func (s *tokenScheme) Authorize(user User) (token *TokenInfo, err error) {
+func (s *tokenScheme) Authorize(user affinity.User) (token *affinity.TokenInfo, err error) {
 	if user.Identity.Scheme != s.Name() {
 		return nil, fmt.Errorf("cannot authorize scheme: %q", user.Identity.Scheme)
 	}
@@ -101,7 +101,7 @@ func (s *tokenScheme) Authorize(user User) (token *TokenInfo, err error) {
 		return nil, err
 	}
 
-	return &TokenInfo{
+	return &affinity.TokenInfo{
 		SchemeId: s.Name(),
 		Values: url.Values{
 			"ConsumerKey":    []string{ssoData.ConsumerKey},
@@ -113,9 +113,9 @@ func (s *tokenScheme) Authorize(user User) (token *TokenInfo, err error) {
 	}, nil
 }
 
-func (s *tokenScheme) Validate(token *TokenInfo) (User, error) {
+func (s *tokenScheme) Validate(token *affinity.TokenInfo) (affinity.User, error) {
 	var err error
-	luser := User{}
+	luser := affinity.User{}
 	if token.SchemeId != s.Name() {
 		return luser, fmt.Errorf("not an Ubuntu SSO token: %q", token.SchemeId)
 	}
@@ -177,5 +177,5 @@ func (s *tokenScheme) Validate(token *TokenInfo) (User, error) {
 		err = fmt.Errorf("validation failed, invalid response")
 		return luser, err
 	}
-	return User{Identity{Scheme: s.Name(), Id: email}}, nil
+	return affinity.User{affinity.Identity{Scheme: s.Name(), Id: email}}, nil
 }

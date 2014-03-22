@@ -20,7 +20,7 @@ package rbac
 import (
 	"fmt"
 
-	. "github.com/juju/affinity"
+	"github.com/juju/affinity"
 )
 
 var ErrNotFound error = fmt.Errorf("Not found")
@@ -104,7 +104,7 @@ func NewRole(name string, permissions ...Permission) Role {
 // can act in a given role (perform actions on) with regard to some resource object.
 type Grant interface {
 	// Principal is the subject granted permissions.
-	Principal() Principal
+	Principal() affinity.Principal
 	// Role is the predicated bundle of permissions.
 	Role() Role
 	// Resource is the object of said permissions.
@@ -148,7 +148,7 @@ func NewAccess(store FactStore, roles RoleMap) *Access {
 }
 
 // HasGrant tests if the principal has been granted a role on a given resource or its container.
-func (s *Access) HasGrant(pr Principal, ro Role, r Resource) (bool, error) {
+func (s *Access) HasGrant(pr affinity.Principal, ro Role, r Resource) (bool, error) {
 	var result bool
 	var err error
 	for r != nil {
@@ -170,7 +170,7 @@ func (s *Access) HasGrant(pr Principal, ro Role, r Resource) (bool, error) {
 }
 
 // Can tests if the principal's granted roles provide a permission on a given resource or its container.
-func (s *Access) Can(pr Principal, pm Permission, r Resource) (bool, error) {
+func (s *Access) Can(pr affinity.Principal, pm Permission, r Resource) (bool, error) {
 	// Does this resource support the capability being requested?
 	if _, supported := r.Capabilities()[pm.Perm()]; !supported {
 		return false, nil
@@ -206,7 +206,7 @@ func NewAdmin(store FactStore, roles RoleMap) *Admin {
 }
 
 // Grant allows a principal permissions to act upon a given resource.
-func (s *Admin) Grant(pr Principal, ro Role, rs Resource) error {
+func (s *Admin) Grant(pr affinity.Principal, ro Role, rs Resource) error {
 	can, err := s.HasGrant(pr, ro, rs)
 	if err != nil {
 		return err
@@ -224,7 +224,7 @@ func (s *Admin) Grant(pr Principal, ro Role, rs Resource) error {
 }
 
 // Revoke removes a prior grant specifically.
-func (s *Admin) Revoke(pr Principal, ro Role, rs Resource) error {
+func (s *Admin) Revoke(pr affinity.Principal, ro Role, rs Resource) error {
 	return s.facts.Deny(Fact{
 		Topic:     rbacTopic,
 		Subject:   pr.String(),
@@ -233,7 +233,7 @@ func (s *Admin) Revoke(pr Principal, ro Role, rs Resource) error {
 	})
 }
 
-func (s *Admin) RevokeAll(pr Principal) error {
+func (s *Admin) RevokeAll(pr affinity.Principal) error {
 	facts, err := s.facts.MatchAll(Fact{Topic: rbacTopic, Subject: pr.String()})
 	if err != nil {
 		return err
@@ -241,7 +241,7 @@ func (s *Admin) RevokeAll(pr Principal) error {
 	return s.facts.Deny(facts...)
 }
 
-// Remove all grants that were made on a given resource.
+// RemoveAll removes all grants that were made on a given resource.
 func (s *Admin) RemoveAll(rs Resource) error {
 	facts, err := s.facts.MatchAll(Fact{Topic: rbacTopic, Object: rs.URI()})
 	if err != nil {

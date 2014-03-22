@@ -20,20 +20,20 @@ package group
 import (
 	"fmt"
 
-	. "github.com/juju/affinity"
+	"github.com/juju/affinity"
 	"github.com/juju/affinity/rbac"
 )
 
 // GroupService provides group administration and queries with access controls.
 type GroupService struct {
 	*rbac.Admin
-	AsUser User
+	AsUser affinity.User
 	facts  *rbac.GroupFacts
 }
 
 // NewGroupService creates a new group service using the given storage, with access
 // to operations as the given user.
-func NewGroupService(store rbac.FactStore, asUser User) *GroupService {
+func NewGroupService(store rbac.FactStore, asUser affinity.User) *GroupService {
 	return &GroupService{
 		Admin:  rbac.NewAdmin(store, GroupRoles),
 		AsUser: asUser,
@@ -42,7 +42,7 @@ func NewGroupService(store rbac.FactStore, asUser User) *GroupService {
 }
 
 // canGroup tests if a user or group has a specific permission on a group.
-func (s *GroupService) canGroup(principal Principal, perm rbac.Permission, groupId string) error {
+func (s *GroupService) canGroup(principal affinity.Principal, perm rbac.Permission, groupId string) error {
 	if ok, err := s.Can(principal, perm, groupResource(groupId)); !ok {
 		return fmt.Errorf("%q has no permission to %q on group %q", principal.String(),
 			perm.Perm(), groupId)
@@ -52,7 +52,7 @@ func (s *GroupService) canGroup(principal Principal, perm rbac.Permission, group
 }
 
 // canService tests if a user or group has a specific permission on this service.
-func (s *GroupService) canService(principal Principal, perm rbac.Permission) error {
+func (s *GroupService) canService(principal affinity.Principal, perm rbac.Permission) error {
 	if ok, err := s.Can(principal, perm, serviceResource{}); !ok {
 		return fmt.Errorf("%q has no permission to %q on service", principal.String(), perm.Perm())
 	} else {
@@ -61,7 +61,7 @@ func (s *GroupService) canService(principal Principal, perm rbac.Permission) err
 }
 
 // CheckMember tests if a principal is immediately or transitively a member of a group.
-func (s *GroupService) CheckMember(groupId string, member Principal) (bool, error) {
+func (s *GroupService) CheckMember(groupId string, member affinity.Principal) (bool, error) {
 	var err error
 	if err = s.canGroup(s.AsUser, CheckMemberPerm{}, groupId); err != nil {
 		return false, err
@@ -112,7 +112,7 @@ func (s *GroupService) RemoveGroup(groupId string) error {
 }
 
 // AddMember adds a new member to an existing group.
-func (s *GroupService) AddMember(groupId string, principal Principal) error {
+func (s *GroupService) AddMember(groupId string, principal affinity.Principal) error {
 	var err error
 	if err = s.canGroup(s.AsUser, AddMemberPerm{}, groupId); err != nil {
 		return err
@@ -126,7 +126,7 @@ func (s *GroupService) AddMember(groupId string, principal Principal) error {
 }
 
 // RemoveMember removes an existing member from a group.
-func (s *GroupService) RemoveMember(groupId string, principal Principal) error {
+func (s *GroupService) RemoveMember(groupId string, principal affinity.Principal) error {
 	var err error
 	if err = s.canGroup(s.AsUser, RemoveMemberPerm{}, groupId); err != nil {
 		return err
@@ -141,7 +141,7 @@ func (s *GroupService) RemoveMember(groupId string, principal Principal) error {
 
 // GrantOnGroup grants a principal (user or group) role permissions on a group.
 // The current user must own the group.
-func (s *GroupService) GrantOnGroup(principal Principal, role rbac.Role, groupId string) error {
+func (s *GroupService) GrantOnGroup(principal affinity.Principal, role rbac.Role, groupId string) error {
 	var err error
 	if err = s.canGroup(s.AsUser, GrantOnGroupPerm{}, groupId); err != nil {
 		return err
@@ -151,7 +151,7 @@ func (s *GroupService) GrantOnGroup(principal Principal, role rbac.Role, groupId
 
 // RevokeOnGroup revokes a principal (user or group) role permissions from a group.
 // The current user must own the group.
-func (s *GroupService) RevokeOnGroup(principal Principal, role rbac.Role, groupId string) error {
+func (s *GroupService) RevokeOnGroup(principal affinity.Principal, role rbac.Role, groupId string) error {
 	var err error
 	if err = s.canGroup(s.AsUser, RevokeOnGroupPerm{}, groupId); err != nil {
 		return err
@@ -159,7 +159,7 @@ func (s *GroupService) RevokeOnGroup(principal Principal, role rbac.Role, groupI
 	return s.Revoke(principal, role, groupResource(groupId))
 }
 
-func (s *GroupService) GrantOnService(principal Principal, role rbac.Role) error {
+func (s *GroupService) GrantOnService(principal affinity.Principal, role rbac.Role) error {
 	var err error
 	if err = s.canService(s.AsUser, GrantOnServicePerm{}); err != nil {
 		return err
@@ -167,7 +167,7 @@ func (s *GroupService) GrantOnService(principal Principal, role rbac.Role) error
 	return s.Grant(principal, role, serviceResource{})
 }
 
-func (s *GroupService) RevokeOnService(principal Principal, role rbac.Role) error {
+func (s *GroupService) RevokeOnService(principal affinity.Principal, role rbac.Role) error {
 	var err error
 	if err = s.canService(s.AsUser, RevokeOnServicePerm{}); err != nil {
 		return err
@@ -175,6 +175,6 @@ func (s *GroupService) RevokeOnService(principal Principal, role rbac.Role) erro
 	return s.Revoke(principal, role, serviceResource{})
 }
 
-func (s *GroupService) Group(groupId string) (Group, error) {
+func (s *GroupService) Group(groupId string) (affinity.Group, error) {
 	panic("TODO")
 }
