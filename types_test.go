@@ -44,11 +44,11 @@ func (s *AffinitySuite) TestParseUser(c *C) {
 
 	_, err = ParseUser("foo:")
 	c.Check(err, NotNil)
-	c.Check(func() { MustParseUser("foo:") }, PanicMatches, "Parse error: invalid User format 'foo:'")
+	c.Check(func() { MustParseUser("foo:") }, PanicMatches, `parse error: invalid User format: "foo:"`)
 
 	_, err = ParseUser(":bar")
 	c.Check(err, NotNil)
-	c.Check(func() { MustParseUser(":bar") }, PanicMatches, "Parse error: invalid User format ':bar'")
+	c.Check(func() { MustParseUser(":bar") }, PanicMatches, `parse error: invalid User format: ":bar"`)
 }
 
 func (s *AffinitySuite) TestGroupContains(c *C) {

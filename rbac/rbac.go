@@ -212,7 +212,7 @@ func (s *Admin) Grant(pr Principal, ro Role, rs Resource) error {
 		return err
 	}
 	if can {
-		return fmt.Errorf("role %s already effectively granted to %s on %s",
+		return fmt.Errorf("role %q already effectively granted to %q on %q",
 			ro.Role(), pr.String(), rs.URI())
 	}
 	return s.facts.Assert(Fact{

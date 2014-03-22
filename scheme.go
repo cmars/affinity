@@ -44,10 +44,10 @@ func (pp *PasswordPrompter) Password() (string, error) {
 type PasswordUnavailable struct{}
 
 func (pu *PasswordUnavailable) Password() (string, error) {
-	return "", fmt.Errorf("Password is unavailable")
+	return "", fmt.Errorf("password is unavailable")
 }
 
-var ErrUnauthorized error = fmt.Errorf("HTTP request not authorized")
+var ErrUnauthorized error = fmt.Errorf("http request not authorized")
 
 // Scheme is a system which identifies principal user identities, and
 // provides a means for those users to prove their identity.
@@ -108,7 +108,7 @@ func NewSchemeMap() *SchemeMap {
 // cannot be replaced by another scheme.
 func (sm *SchemeMap) Register(scheme Scheme) error {
 	if s, has := sm.schemes[scheme.Name()]; has {
-		return fmt.Errorf("Scheme [%s] already registered", s.Name())
+		return fmt.Errorf("scheme already registered: %q", s.Name())
 	}
 	sm.schemes[scheme.Name()] = scheme
 	return nil
@@ -163,7 +163,7 @@ func (sm *SchemeMap) Handshake(name string) HandshakeScheme {
 func AuthRequestToken(scheme TokenScheme, r *http.Request) (User, error) {
 	auths, has := r.Header[http.CanonicalHeaderKey("Authorization")]
 	if !has {
-		return User{}, fmt.Errorf("Request not authenticated")
+		return User{}, fmt.Errorf("request not authenticated")
 	}
 	for _, auth := range auths {
 		// TODO: quick prefix check of the auth string might be faster

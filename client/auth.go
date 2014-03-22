@@ -30,7 +30,7 @@ import (
 const AuthDirName = "auth"
 const AuthTokenSuffix = ".token"
 
-var ErrAuthNotFound error = fmt.Errorf("Authorization not found")
+var ErrAuthNotFound error = fmt.Errorf("authorization not found")
 
 // AuthTokenStore stores authentication tokens by their scheme and endpoint.
 type AuthStore interface {
@@ -73,7 +73,7 @@ func (s *FileAuthStore) Get(schemeId string, endpoint string) (*TokenInfo, error
 		}
 		return nil, err
 	} else if fi.Mode().IsDir() || !fi.Mode().IsRegular() {
-		return nil, fmt.Errorf("Cannot retrieve %s token for endpoint %s: not a regular file", schemeId, endpoint)
+		return nil, fmt.Errorf("cannot retrieve %q token for endpoint %q: not a regular file", schemeId, endpoint)
 	}
 	authContents, err := ioutil.ReadFile(tokenPath)
 	if err != nil {
@@ -88,7 +88,7 @@ func (s *FileAuthStore) Get(schemeId string, endpoint string) (*TokenInfo, error
 		return nil, err
 	}
 	if token.SchemeId != schemeId {
-		return nil, fmt.Errorf("Token contents [%s] do not match requested scheme %s", token.SchemeId, schemeId)
+		return nil, fmt.Errorf(`token scheme %q does not match requested scheme %q`, token.SchemeId, schemeId)
 	}
 	return token, nil
 }

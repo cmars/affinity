@@ -87,7 +87,7 @@ func (user User) Contains(p Principal) bool {
 func ParseUser(s string) (u User, err error) {
 	i := strings.Index(s, ":")
 	if i == -1 || i == 0 || i == len(s)-1 {
-		return u, fmt.Errorf("Parse error: invalid User format '%v'", s)
+		return u, fmt.Errorf("parse error: invalid User format: %q", s)
 	}
 	return User{Identity: Identity{s[0:i], s[i+1:]}}, nil
 }
@@ -150,7 +150,7 @@ func (t *TokenInfo) Realm() string {
 func ParseTokenInfo(header string) (*TokenInfo, error) {
 	parts := strings.SplitN(header, " ", 2)
 	if len(parts) < 2 {
-		return nil, fmt.Errorf("Malformed authentication header: %s", header)
+		return nil, fmt.Errorf("malformed authentication header: %q", header)
 	}
 	schemeId := parts[0]
 	paramString := parts[1]
@@ -161,7 +161,7 @@ func ParseTokenInfo(header string) (*TokenInfo, error) {
 		part = strings.TrimSpace(part)
 		kvpair := strings.Split(part, "=")
 		if len(kvpair) != 2 {
-			return nil, fmt.Errorf("Malformed authentication param: %s", part)
+			return nil, fmt.Errorf("malformed authentication param: %q", part)
 		}
 		key, value := kvpair[0], kvpair[1]
 		value = strings.Trim(value, `"`)

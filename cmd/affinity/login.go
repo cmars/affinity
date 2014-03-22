@@ -77,7 +77,7 @@ func (c *loginCmd) Main() {
 
 	scheme := schemes.Token(user.Scheme)
 	if scheme == nil {
-		die(fmt.Errorf("Scheme '%s' is not supported", user.Scheme))
+		die(fmt.Errorf("scheme is not supported: %q", user.Scheme))
 	}
 
 	token, err := scheme.Authorize(user)

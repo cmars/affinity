@@ -88,7 +88,7 @@ func (s *tokenScheme) Authenticate(r *http.Request) (User, error) {
 
 func (s *tokenScheme) Authorize(user User) (token *TokenInfo, err error) {
 	if user.Identity.Scheme != s.Name() {
-		return nil, fmt.Errorf("Cannot authorize scheme %s", user.Identity.Scheme)
+		return nil, fmt.Errorf("cannot authorize scheme: %q", user.Identity.Scheme)
 	}
 
 	pass, err := s.passProv.Password()
@@ -117,31 +117,31 @@ func (s *tokenScheme) Validate(token *TokenInfo) (User, error) {
 	var err error
 	luser := User{}
 	if token.SchemeId != s.Name() {
-		return luser, fmt.Errorf("%s: Not an Ubuntu SSO token", token.SchemeId)
+		return luser, fmt.Errorf("not an Ubuntu SSO token: %q", token.SchemeId)
 	}
 	consumerKey := token.Values.Get("ConsumerKey")
 	if consumerKey == "" {
-		err = fmt.Errorf("No ConsumerKey provided in authorization")
+		err = fmt.Errorf("missing OAuth attribute: ConsumerKey")
 		return luser, err
 	}
 	consumerSecret := token.Values.Get("ConsumerSecret")
 	if consumerSecret == "" {
-		err = fmt.Errorf("No ConsumerSecret provided in authorization")
+		err = fmt.Errorf("missing OAuth attribute: ConsumerSecret")
 		return luser, err
 	}
 	tokenKey := token.Values.Get("TokenKey")
 	if tokenKey == "" {
-		err = fmt.Errorf("No TokenKey provided in authorization")
+		err = fmt.Errorf("missing OAuth attribute: TokenKey")
 		return luser, err
 	}
 	tokenSecret := token.Values.Get("TokenSecret")
 	if tokenSecret == "" {
-		err = fmt.Errorf("No TokenSecret provided in authorization")
+		err = fmt.Errorf("missing OAuth attribute: TokenSecret")
 		return luser, err
 	}
 	tokenName := token.Values.Get("TokenName")
 	if tokenName == "" {
-		err = fmt.Errorf("No TokenName provided in authorization")
+		err = fmt.Errorf("missing OAuth attribute: TokenName")
 		return luser, err
 	}
 	// construct sso data collection for validation
@@ -154,13 +154,13 @@ func (s *tokenScheme) Validate(token *TokenInfo) (User, error) {
 	}
 	resultRaw, err := usso.ProductionUbuntuSSOServer.GetAccounts(&ssoData)
 	if err != nil {
-		log.Printf("Failed to validate USSO token data: %v", err)
+		log.Printf("failed to validate Ubuntu SSO token data: %q", err)
 		return luser, err
 	}
 	result := map[string]interface{}{}
 	err = json.Unmarshal([]byte(resultRaw), &result)
 	if err != nil {
-		log.Printf("Failed to decode USSO data: %v", err)
+		log.Printf("failed to decode Ubuntu SSO token data: %q", err)
 		return luser, err
 	}
 
@@ -169,12 +169,12 @@ func (s *tokenScheme) Validate(token *TokenInfo) (User, error) {
 	_, hasDisplayName := result["displayname"]
 	_, hasTokens := result["tokens"]
 	if !hasEmail || !hasDisplayName || !hasTokens {
-		err = fmt.Errorf("SSO validation failed, missing required fields")
+		err = fmt.Errorf("validation failed, response missing required SSO fields")
 		return luser, err
 	}
 	email, ok := result["email"].(string)
 	if !ok || email == "" {
-		err = fmt.Errorf("Invalid SSO data received for %v", result["email"])
+		err = fmt.Errorf("validation failed, invalid response")
 		return luser, err
 	}
 	return User{Identity{Scheme: s.Name(), Id: email}}, nil

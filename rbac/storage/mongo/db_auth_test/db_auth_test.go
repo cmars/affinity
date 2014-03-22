@@ -41,11 +41,11 @@ func (s *MongoAuthSuite) reset() {
 func (s *MongoAuthSuite) setPassword() error {
 	store := s.Session.DB("affinity_store_suite_auth")
 	if err := store.AddUser("admin", "password", false); err != nil && err.Error() != "need to login" {
-		return fmt.Errorf("cannot set admin password: %v", err)
+		return fmt.Errorf("cannot set admin password: %q", err)
 	}
 	rbac := s.Session.DB("affinity_rbac_suite_auth")
 	if err := rbac.AddUser("admin", "password", false); err != nil && err.Error() != "need to login" {
-		return fmt.Errorf("cannot set admin password: %v", err)
+		return fmt.Errorf("cannot set admin password: %q", err)
 	}
 	return nil
 }

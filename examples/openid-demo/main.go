@@ -50,12 +50,12 @@ func main() {
 
 	session, err := mgo.Dial(*mgoAddr)
 	if err != nil {
-		die(fmt.Errorf("Failed to connect to store:%v", err))
+		die(fmt.Errorf("failed to connect to store: %q", err))
 	}
 
 	rbacStore, err := rbac_mongo.NewFactStore(session, session.DB(*mgoDbName), "demo_rbac")
 	if err != nil {
-		die(fmt.Errorf("Failed to find store:%v", err))
+		die(fmt.Errorf("failed to find store: %q", err))
 	}
 
 	sessionStore := sessions.NewCookieStore(
@@ -88,7 +88,7 @@ func (_ RedirectToTls) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		host = req.Host
 	}
-	http.Redirect(w, req, fmt.Sprintf("https://%v:8443%v", host, req.URL.Path), 301)
+	http.Redirect(w, req, fmt.Sprintf("https://%s:8443%s", host, req.URL.Path), 301)
 }
 
 func BadRequest(w http.ResponseWriter, err error) {

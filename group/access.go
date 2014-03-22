@@ -44,7 +44,7 @@ func NewGroupService(store rbac.FactStore, asUser User) *GroupService {
 // canGroup tests if a user or group has a specific permission on a group.
 func (s *GroupService) canGroup(principal Principal, perm rbac.Permission, groupId string) error {
 	if ok, err := s.Can(principal, perm, groupResource(groupId)); !ok {
-		return fmt.Errorf("%s has no permission to %s on group %s", principal.String(),
+		return fmt.Errorf("%q has no permission to %q on group %q", principal.String(),
 			perm.Perm(), groupId)
 	} else {
 		return err
@@ -54,7 +54,7 @@ func (s *GroupService) canGroup(principal Principal, perm rbac.Permission, group
 // canService tests if a user or group has a specific permission on this service.
 func (s *GroupService) canService(principal Principal, perm rbac.Permission) error {
 	if ok, err := s.Can(principal, perm, serviceResource{}); !ok {
-		return fmt.Errorf("%s has no permission to %s on service", principal.String(), perm.Perm())
+		return fmt.Errorf("%q has no permission to %q on service", principal.String(), perm.Perm())
 	} else {
 		return err
 	}

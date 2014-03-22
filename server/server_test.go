@@ -35,6 +35,7 @@ func TestServerSuite(t *testing.T) { TestingT(t) }
 
 type ServerSuite struct {
 	*httptest.Server
+	currentUser User
 }
 
 var _ = Suite(&ServerSuite{})
@@ -77,7 +78,8 @@ func (ss *ServerSuite) SetUpTest(c *C) {
 	s := server.NewAuthServer(mem.NewFactStore())
 	s.Schemes.Register(&MockScheme{})
 	s.HandleFunc("/whoami", func(w http.ResponseWriter, r *http.Request) {
-		user, err := s.Authenticate(r)
+		var err error
+		ss.currentUser, err = s.Authenticate(r)
 		if err == ErrUnauthorized {
 			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return
@@ -85,12 +87,12 @@ func (ss *ServerSuite) SetUpTest(c *C) {
 			http.Error(w, "Server error", http.StatusInternalServerError)
 			return
 		}
-		fmt.Fprintf(w, "%s", user.String())
 	})
 	ss.Server = httptest.NewServer(s)
 }
 
 func (ss *ServerSuite) TearDownTest(c *C) {
+	ss.currentUser = User{}
 	ss.Server.Close()
 }
 
