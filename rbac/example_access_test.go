@@ -20,7 +20,7 @@ type MessageBoard interface {
 	// Sticky prevents the message from rolling off, keeps it at the top.
 	Sticky(threadId int) error
 	// Ban a user for some time.
-	Ban(user User, seconds int) error
+	Ban(user Principal, seconds int) error
 	// Delete a message.
 	Delete(threadId int) error
 }
@@ -36,7 +36,7 @@ var MessageBoardResource rbac.Resource = rbac.NewResource("message-board:",
 // mbConn is a connection to the message board service as a certain user.
 type mbConn struct {
 	*rbac.Access
-	AsUser User
+	AsUser Principal
 }
 
 func (mb *mbConn) Lurk(pageNumber int) (string, error) {
@@ -70,12 +70,12 @@ func ExampleAccess(t *testing.T) {
 	// Admin lets us grant and revoke roles
 	admin := rbac.NewAdmin(store, MessageBoardRoles)
 	// Anonymous scheme users can lurk and that's all
-	admin.Grant(User{Identity: Identity{"anon", "*"}}, LurkerRole, MessageBoardResource)
+	admin.Grant(Principal{"anon", "*"}, LurkerRole, MessageBoardResource)
 	// Verified Gooble users can post
-	admin.Grant(User{Identity: Identity{"gooble", "*"}}, PosterRole, MessageBoardResource)
+	admin.Grant(Principal{"gooble", "*"}, PosterRole, MessageBoardResource)
 
 	// A wild anon appears
-	anon := User{Identity: Identity{"anon", "10.55.61.128"}}
+	anon := Principal{"anon", "10.55.61.128"}
 
 	// Connect to the message board service as this user
 	// In a web application, you'll likely derive the user from http.Request, using
@@ -92,7 +92,7 @@ func ExampleAccess(t *testing.T) {
 
 	// A tame authenticated user appears. Reattach as tame user now.
 	// In real life, this would likely be in a distinct http.Handler with its own session.
-	tame := User{Identity: Identity{"gooble", "YourRealName"}}
+	tame := Principal{"gooble", "YourRealName"}
 	mb = &mbConn{rbac.NewAccess(store, MessageBoardRoles), tame}
 
 	// Post a message.

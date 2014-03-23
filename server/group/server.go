@@ -96,7 +96,7 @@ func (s *GroupServer) handleUser(r *http.Request) *server.Response {
 	vars := mux.Vars(r)
 	groupId := vars["group"]
 	userString := vars["user"]
-	user, err := affinity.ParseUser(userString)
+	user, err := affinity.ParsePrincipal(userString)
 	if err != nil {
 		return &server.Response{Error: err}
 	}

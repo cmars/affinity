@@ -56,7 +56,7 @@ func (c *AuthClient) Authorize(req *http.Request, schemes []*affinity.TokenInfo)
 	req.Header.Del("Authorization")
 	for _, scheme := range schemes {
 		var token *affinity.TokenInfo
-		token, err = c.Store.Get(scheme.SchemeId, req.Host)
+		token, err = c.Store.Get(scheme.Scheme, req.Host)
 		if err == ErrAuthNotFound {
 			continue
 		} else if err != nil {

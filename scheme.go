@@ -82,7 +82,7 @@ type Scheme interface {
 	// Authenticate checks an HTTP request for a positive identity.
 	// Returns the user identity if authentication is valid, otherwise
 	// ErrUnauthorized as a prompt to authenticate.
-	Authenticate(r *http.Request) (user User, err error)
+	Authenticate(r *http.Request) (principal Principal, err error)
 }
 
 // TokenScheme creates authorization tokens for identities and validates them.
@@ -92,11 +92,11 @@ type TokenScheme interface {
 	// Authorize creates an authorization token for the given identity.
 	// Implementations may support multiple factors
 	// (passphrases, private keys, etc.) when creating the authorization.
-	Authorize(user User) (token *TokenInfo, err error)
+	Authorize(principal Principal) (token *TokenInfo, err error)
 
 	// Validate checks an authorization token created by Authorize. If valid,
 	// returns the user identity for whom it was created.
-	Validate(token *TokenInfo) (user User, err error)
+	Validate(token *TokenInfo) (principal Principal, err error)
 }
 
 // HandshakeScheme handles handshake identity protocols such as OpenID or OAuth 2
@@ -112,6 +112,14 @@ type HandshakeScheme interface {
 	// identity provider. Implementations will typically create a session here for the
 	// established identity.
 	Authenticated(w http.ResponseWriter, r *http.Request)
+}
+
+type GroupScheme interface {
+	Scheme
+
+	Contains(principal Principal) (bool, error)
+
+	Groups(principal Principal) ([]Principal, error)
 }
 
 // SchemeMap stores registered Scheme name-to-instance bindings.
@@ -183,10 +191,10 @@ func (sm *SchemeMap) Handshake(name string) HandshakeScheme {
 
 // AuthRequestToken matches and validates RFC 2617 authorization headers
 // as a principal user identity.
-func AuthRequestToken(scheme TokenScheme, r *http.Request) (User, error) {
+func AuthRequestToken(scheme TokenScheme, r *http.Request) (Principal, error) {
 	auths, has := r.Header[http.CanonicalHeaderKey("Authorization")]
 	if !has {
-		return User{}, fmt.Errorf("request not authenticated")
+		return Principal{}, fmt.Errorf("request not authenticated")
 	}
 	for _, auth := range auths {
 		// TODO: quick prefix check of the auth string might be faster
@@ -194,14 +202,14 @@ func AuthRequestToken(scheme TokenScheme, r *http.Request) (User, error) {
 		if err != nil {
 			continue
 		}
-		if token.SchemeId != scheme.Name() {
+		if token.Scheme != scheme.Name() {
 			continue
 		}
-		user, err := scheme.Validate(token)
+		principal, err := scheme.Validate(token)
 		if err != nil {
 			continue
 		}
-		return user, nil
+		return principal, nil
 	}
-	return User{}, ErrUnauthorized
+	return Principal{}, ErrUnauthorized
 }

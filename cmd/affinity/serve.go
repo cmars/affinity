@@ -84,7 +84,7 @@ func (c *serveCmd) Main() {
 	// Grant service role to configured admins
 	for _, serviceAdmin := range c.serviceAdmins {
 		admin := rbac.NewAdmin(store, group.GroupRoles)
-		u, err := affinity.ParseUser(serviceAdmin)
+		u, err := affinity.ParsePrincipal(serviceAdmin)
 		if err != nil {
 			die(err)
 		}

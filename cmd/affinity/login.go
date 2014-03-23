@@ -70,7 +70,7 @@ func (c *loginCmd) Main() {
 	schemes.Register(usso.NewOauthCli(fmt.Sprintf("affinity@%s", serverUrl.Host),
 		&affinity.PasswordPrompter{}))
 
-	user, err := affinity.ParseUser(c.user)
+	user, err := affinity.ParsePrincipal(c.user)
 	if err != nil {
 		die(err)
 	}

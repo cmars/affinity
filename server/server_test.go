@@ -35,7 +35,7 @@ func TestServerSuite(t *testing.T) { TestingT(t) }
 
 type ServerSuite struct {
 	*httptest.Server
-	currentUser User
+	currentUser Principal
 }
 
 var _ = Suite(&ServerSuite{})
@@ -44,32 +44,32 @@ type MockScheme struct{}
 
 func (s *MockScheme) Name() string { return "mock" }
 
-func (s *MockScheme) Authenticate(r *http.Request) (user User, err error) {
+func (s *MockScheme) Authenticate(r *http.Request) (user Principal, err error) {
 	return AuthRequestToken(s, r)
 }
 
-func (s *MockScheme) Authorize(user User) (token *TokenInfo, err error) {
+func (s *MockScheme) Authorize(user Principal) (token *TokenInfo, err error) {
 	token = NewTokenInfo(s.Name())
 	data := []byte(user.String())
 	token.Values.Set("data", hex.EncodeToString(data))
 	return token, nil
 }
 
-func (s *MockScheme) Validate(token *TokenInfo) (user User, err error) {
+func (s *MockScheme) Validate(token *TokenInfo) (user Principal, err error) {
 	data := token.Values.Get("data")
 	if data == "" {
-		return User{}, fmt.Errorf("no data")
+		return Principal{}, fmt.Errorf("no data")
 	}
 	dec, err := hex.DecodeString(data)
 	if err != nil {
-		return User{}, fmt.Errorf("bad data")
+		return Principal{}, fmt.Errorf("bad data")
 	}
-	user, err = ParseUser(string(dec))
+	user, err = ParsePrincipal(string(dec))
 	if err != nil {
-		return User{}, fmt.Errorf("bad user data")
+		return Principal{}, fmt.Errorf("bad user data")
 	}
-	if user.Identity.Scheme != s.Name() {
-		return User{}, fmt.Errorf("wrong scheme")
+	if user.Scheme != s.Name() {
+		return Principal{}, fmt.Errorf("wrong scheme")
 	}
 	return user, nil
 }
@@ -92,7 +92,7 @@ func (ss *ServerSuite) SetUpTest(c *C) {
 }
 
 func (ss *ServerSuite) TearDownTest(c *C) {
-	ss.currentUser = User{}
+	ss.currentUser = Principal{}
 	ss.Server.Close()
 }
 
@@ -103,7 +103,7 @@ func (ss *ServerSuite) TestNoAuth(c *C) {
 }
 
 func (ss *ServerSuite) TestBadAuth(c *C) {
-	user, err := ParseUser("mock:foo")
+	user, err := ParsePrincipal("mock:foo")
 	c.Assert(err, IsNil)
 
 	scheme := &MockScheme{}

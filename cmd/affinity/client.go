@@ -71,7 +71,7 @@ func (c *groupCmd) Main(h cmdHandler) {
 type userCmd struct {
 	groupCmd
 	user string
-	User affinity.User
+	User affinity.Principal
 }
 
 func userFlags(h cmdHandler, cmd *userCmd) {
@@ -85,7 +85,7 @@ func (c *userCmd) Main(h cmdHandler) {
 		Usage(h, "--user is required")
 	}
 	var err error
-	c.User, err = affinity.ParseUser(c.user)
+	c.User, err = affinity.ParsePrincipal(c.user)
 	if err != nil {
 		die(err)
 	}

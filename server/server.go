@@ -57,7 +57,7 @@ func NewAuthServer(store rbac.FactStore) *AuthServer {
 	return &AuthServer{mux.NewRouter(), store, affinity.NewSchemeMap()}
 }
 
-func (s *AuthServer) Authenticate(r *http.Request) (user affinity.User, err error) {
+func (s *AuthServer) Authenticate(r *http.Request) (user affinity.Principal, err error) {
 	auths, has := r.Header[http.CanonicalHeaderKey("Authorization")]
 	if !has {
 		// If the request does not have an authorization header,
@@ -68,14 +68,14 @@ func (s *AuthServer) Authenticate(r *http.Request) (user affinity.User, err erro
 				return user, err
 			}
 		}
-		return affinity.User{}, affinity.ErrUnauthorized
+		return affinity.Principal{}, affinity.ErrUnauthorized
 	}
 	for _, auth := range auths {
 		token, err := affinity.ParseTokenInfo(auth)
 		if err != nil {
 			continue
 		}
-		scheme := s.Schemes.Token(token.SchemeId)
+		scheme := s.Schemes.Token(token.Scheme)
 		if scheme == nil {
 			continue
 		}
@@ -85,5 +85,5 @@ func (s *AuthServer) Authenticate(r *http.Request) (user affinity.User, err erro
 		}
 		return user, nil
 	}
-	return affinity.User{}, affinity.ErrUnauthorized
+	return affinity.Principal{}, affinity.ErrUnauthorized
 }

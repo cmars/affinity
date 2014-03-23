@@ -56,7 +56,7 @@ func (c *GroupClient) DeleteGroup(group string) error {
 	return err
 }
 
-func (c *GroupClient) GetGroup(group string) (g affinity.Group, err error) {
+func (c *GroupClient) GetGroup(group string) (g affinity.Principal, err error) {
 	out, err := c.doGroupRequest(group, "GET")
 	if err != nil {
 		return g, err
@@ -86,22 +86,22 @@ func (c *GroupClient) doGroupRequest(group string, method string) ([]byte, error
 	return buf.Bytes(), err
 }
 
-func (c *GroupClient) AddUser(group string, user affinity.User) error {
+func (c *GroupClient) AddUser(group string, user affinity.Principal) error {
 	_, err := c.doUserRequest(group, user, "PUT")
 	return err
 }
 
-func (c *GroupClient) DeleteUser(group string, user affinity.User) error {
+func (c *GroupClient) DeleteUser(group string, user affinity.Principal) error {
 	_, err := c.doUserRequest(group, user, "DELETE")
 	return err
 }
 
-func (c *GroupClient) CheckUser(group string, user affinity.User) error {
+func (c *GroupClient) CheckUser(group string, user affinity.Principal) error {
 	_, err := c.doUserRequest(group, user, "GET")
 	return err
 }
 
-func (c *GroupClient) doUserRequest(group string, user affinity.User, method string) ([]byte, error) {
+func (c *GroupClient) doUserRequest(group string, user affinity.Principal, method string) ([]byte, error) {
 	var u url.URL
 	u = c.Url
 	u.Path = fmt.Sprintf("/%s/%s/", group, user.String())

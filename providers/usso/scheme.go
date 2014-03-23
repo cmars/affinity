@@ -66,12 +66,12 @@ func NewOauthCli(token string, passProv affinity.PasswordProvider) affinity.Toke
 	}
 }
 
-func (s *handshakeScheme) Authenticate(r *http.Request) (affinity.User, error) {
+func (s *handshakeScheme) Authenticate(r *http.Request) (affinity.Principal, error) {
 	session, err := s.openID.Authenticate(r)
 	if err != nil {
-		return affinity.User{}, err
+		return affinity.Principal{}, err
 	}
-	return affinity.User{affinity.Identity{Scheme: s.Name(), Id: s.openID.Email(session)}}, nil
+	return affinity.Principal{Scheme: s.Name(), Id: s.openID.Email(session)}, nil
 }
 
 func (s *handshakeScheme) SignIn(w http.ResponseWriter, r *http.Request) error {
@@ -82,13 +82,13 @@ func (s *handshakeScheme) Authenticated(w http.ResponseWriter, r *http.Request) 
 	s.openID.Callback(w, r)
 }
 
-func (s *tokenScheme) Authenticate(r *http.Request) (affinity.User, error) {
+func (s *tokenScheme) Authenticate(r *http.Request) (affinity.Principal, error) {
 	return affinity.AuthRequestToken(s, r)
 }
 
-func (s *tokenScheme) Authorize(user affinity.User) (token *affinity.TokenInfo, err error) {
-	if user.Identity.Scheme != s.Name() {
-		return nil, fmt.Errorf("cannot authorize scheme: %q", user.Identity.Scheme)
+func (s *tokenScheme) Authorize(user affinity.Principal) (token *affinity.TokenInfo, err error) {
+	if user.Scheme != s.Name() {
+		return nil, fmt.Errorf("cannot authorize scheme: %q", user.Scheme)
 	}
 
 	pass, err := s.passProv.Password()
@@ -96,13 +96,13 @@ func (s *tokenScheme) Authorize(user affinity.User) (token *affinity.TokenInfo, 
 		return nil, err
 	}
 
-	ssoData, err := usso.ProductionUbuntuSSOServer.GetToken(user.Identity.Id, pass, s.token)
+	ssoData, err := usso.ProductionUbuntuSSOServer.GetToken(user.Id, pass, s.token)
 	if err != nil {
 		return nil, err
 	}
 
 	return &affinity.TokenInfo{
-		SchemeId: s.Name(),
+		Scheme: s.Name(),
 		Values: url.Values{
 			"ConsumerKey":    []string{ssoData.ConsumerKey},
 			"ConsumerSecret": []string{ssoData.ConsumerSecret},
@@ -113,11 +113,11 @@ func (s *tokenScheme) Authorize(user affinity.User) (token *affinity.TokenInfo, 
 	}, nil
 }
 
-func (s *tokenScheme) Validate(token *affinity.TokenInfo) (affinity.User, error) {
+func (s *tokenScheme) Validate(token *affinity.TokenInfo) (affinity.Principal, error) {
 	var err error
-	luser := affinity.User{}
-	if token.SchemeId != s.Name() {
-		return luser, fmt.Errorf("not an Ubuntu SSO token: %q", token.SchemeId)
+	luser := affinity.Principal{}
+	if token.Scheme != s.Name() {
+		return luser, fmt.Errorf("not an Ubuntu SSO token: %q", token.Scheme)
 	}
 	consumerKey := token.Values.Get("ConsumerKey")
 	if consumerKey == "" {
@@ -177,5 +177,5 @@ func (s *tokenScheme) Validate(token *affinity.TokenInfo) (affinity.User, error)
 		err = fmt.Errorf("validation failed, invalid response")
 		return luser, err
 	}
-	return affinity.User{affinity.Identity{Scheme: s.Name(), Id: email}}, nil
+	return affinity.Principal{Scheme: s.Name(), Id: email}, nil
 }

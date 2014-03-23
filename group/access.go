@@ -27,13 +27,13 @@ import (
 // GroupService provides group administration and queries with access controls.
 type GroupService struct {
 	*rbac.Admin
-	AsUser affinity.User
+	AsUser affinity.Principal
 	facts  *rbac.GroupFacts
 }
 
 // NewGroupService creates a new group service using the given storage, with access
 // to operations as the given user.
-func NewGroupService(store rbac.FactStore, asUser affinity.User) *GroupService {
+func NewGroupService(store rbac.FactStore, asUser affinity.Principal) *GroupService {
 	return &GroupService{
 		Admin:  rbac.NewAdmin(store, GroupRoles),
 		AsUser: asUser,
@@ -175,6 +175,6 @@ func (s *GroupService) RevokeOnService(principal affinity.Principal, role rbac.R
 	return s.Revoke(principal, role, serviceResource{})
 }
 
-func (s *GroupService) Group(groupId string) (affinity.Group, error) {
+func (s *GroupService) Group(groupId string) (affinity.Principal, error) {
 	panic("TODO")
 }
