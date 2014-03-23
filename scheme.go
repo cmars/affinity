@@ -20,8 +20,9 @@ package affinity
 import (
 	"fmt"
 	"net/http"
+	"os"
 
-	"code.google.com/p/gopass"
+	"code.google.com/p/go.crypto/ssh/terminal"
 )
 
 // PasswordProvider obtains a password for authentication providers
@@ -37,7 +38,29 @@ type PasswordProvider interface {
 type PasswordPrompter struct{}
 
 func (pp *PasswordPrompter) Password() (string, error) {
-	return gopass.GetPass("Password: ")
+	fd := int(os.Stdin.Fd())
+	if !terminal.IsTerminal(fd) {
+		return "", fmt.Errorf("cannot read password input: not a terminal")
+	}
+
+	// Put terminal in raw mode
+	oldState, err := terminal.MakeRaw(fd)
+	if err != nil {
+		return "", err
+	}
+	defer terminal.Restore(fd, oldState)
+
+	_, err = fmt.Printf("Password: ")
+	if err != nil {
+		return "", err
+	}
+
+	// Line feed after password entered, since input is suppressed.
+	defer fmt.Println()
+
+	// Read the password
+	pass, err := terminal.ReadPassword(fd)
+	return string(pass), err
 }
 
 // PasswordUnavilable is never able to obtain a password.
