@@ -53,7 +53,7 @@ func main() {
 		die(fmt.Errorf("Failed to connect to store:%v", err))
 	}
 
-	rbacStore, err := rbac_mongo.NewMongoStore(session, *mgoDbName)
+	rbacStore, err := rbac_mongo.NewMongoStore(session, *mgoDbName, "","")
 	if err != nil {
 		die(fmt.Errorf("Failed to find store:%v", err))
 	}
@@ -65,7 +65,7 @@ func main() {
 
 	demoContext := DemoHandler{
 		Store:  rbacStore,
-		Scheme: usso.NewOpenIdWeb("openid-demo", sessionStore),
+		Scheme: usso.NewOpenIdWeb("openid-demo", "", sessionStore),
 	}
 
 	r := mux.NewRouter()

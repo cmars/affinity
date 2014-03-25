@@ -39,15 +39,21 @@ type OpenID struct {
 	urlStore       map[string]string
 	realm          string
 	sessionStore   sessions.Store
+	redirectHost   string
 }
 
-func NewSimpleOpenID(realm string, sessionStore sessions.Store) *OpenID {
+// NewSimpleOpenID creates a new OpenID authentication helper which facilitates
+// establishing an identity and associating it with a secure session
+// cookie. When redirectHost is "", OpenID redirects will use the same hostname
+// as the request.
+func NewSimpleOpenID(realm string, redirectHost string, sessionStore sessions.Store) *OpenID {
 	return &OpenID{
 		nonceStore:     &openid.SimpleNonceStore{Store: make(map[string][]*openid.Nonce)},
 		discoveryCache: &openid.SimpleDiscoveryCache{},
 		urlStore:       make(map[string]string), // TODO: needs to expire handshakes
 		realm:          realm,
 		sessionStore:   sessionStore,
+		redirectHost:   redirectHost,
 	}
 }
 
@@ -57,9 +63,17 @@ func (oid *OpenID) respError(w http.ResponseWriter, msg string, statusCode int, 
 	return
 }
 
+func (oid *OpenID) responseHost(r *http.Request) string {
+	host := oid.redirectHost
+	if host == "" {
+		host = r.Host
+	}
+	return host
+}
+
 func (oid *OpenID) Callback(w http.ResponseWriter, r *http.Request) {
 	// verify the response
-	fullURL := fmt.Sprintf("https://%v%v", r.Host, r.URL.String())
+	fullURL := fmt.Sprintf("https://%v%v", oid.responseHost(r), r.URL.String())
 	_, err := openid.Verify(fullURL, oid.discoveryCache, oid.nonceStore)
 	if err != nil {
 		oid.respError(w, "Unauthorized", http.StatusUnauthorized,
@@ -164,11 +178,11 @@ func (oid *OpenID) OpRedirect(authorityURL string, w http.ResponseWriter, r *htt
 	cbuuid := uuid.NewRandom()
 
 	// store the original user requested url
-	originalUrl := fmt.Sprintf("https://%v%v", r.Host, r.URL.String())
+	originalUrl := fmt.Sprintf("https://%v%v", oid.responseHost(r), r.URL.String())
 	oid.urlStore[cbuuid.String()] = originalUrl
 
 	// now redirect to the authority
-	fullURL := fmt.Sprintf("https://%v%v?cbuuid=%v", r.Host, "/openidcallback", cbuuid)
+	fullURL := fmt.Sprintf("https://%v%v?cbuuid=%v", oid.responseHost(r), "/openidcallback", cbuuid)
 	if redirectUrl, err := openid.RedirectUrl(authorityURL, fullURL, ""); err == nil {
 		http.Redirect(w, r, redirectUrl, http.StatusSeeOther)
 		return nil
