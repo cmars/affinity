@@ -65,7 +65,7 @@ func main() {
 
 	demoContext := DemoHandler{
 		Store:  rbacStore,
-		Scheme: usso.NewOpenIdWeb("openid-demo", sessionStore),
+		Scheme: usso.NewOpenIdWeb("openid-demo", "", sessionStore),
 	}
 
 	r := mux.NewRouter()

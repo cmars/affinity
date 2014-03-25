@@ -48,12 +48,15 @@ type handshakeScheme struct {
 	openID *common.OpenID
 }
 
-func NewOpenIdWeb(token string, sessionStore sessions.Store) HandshakeScheme {
+// NewOpenIDWeb creates a new Ubuntu SSO OpenID authentication helper.  When
+// redirectHost is "", OpenID redirects will use the same hostname as the
+// request.
+func NewOpenIdWeb(token string, redirectHost string, sessionStore sessions.Store) HandshakeScheme {
 	return &handshakeScheme{
 		scheme: scheme{
 			token: token,
 		},
-		openID: common.NewSimpleOpenID(token, sessionStore),
+		openID: common.NewSimpleOpenID(token, redirectHost, sessionStore),
 	}
 }
 
