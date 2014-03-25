@@ -74,7 +74,7 @@ func (c *serveCmd) Main() {
 	if err != nil {
 		die(err)
 	}
-	store, err := mongo.NewMongoStore(session, c.dbname)
+	store, err := mongo.NewMongoStore(session, c.dbname, "", "")
 	if err != nil {
 		die(err)
 	}
