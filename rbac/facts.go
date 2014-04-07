@@ -80,6 +80,18 @@ func (s *GroupFacts) Match(fact Fact) ([]Fact, error) {
 	return s.store.Match(fact)
 }
 
+// IsGroup returns whether a given subject is a group.
+func (s *GroupFacts) IsGroup(subject string) (bool, error) {
+	// Find the assertion that this is a group.
+	isa, err := s.store.Match(Fact{
+		Topic:     groupTopic,
+		Subject:   subject,
+		Predicate: Isa,
+		Object:    GroupObject,
+	})
+	return len(isa) > 0, err
+}
+
 // AddGroup defines a new, empty subject group.
 func (s *GroupFacts) AddGroup(group string) error {
 	// Declare that the group is a group.

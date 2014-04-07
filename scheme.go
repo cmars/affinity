@@ -114,14 +114,6 @@ type HandshakeScheme interface {
 	Authenticated(w http.ResponseWriter, r *http.Request)
 }
 
-type GroupScheme interface {
-	Scheme
-
-	Contains(principal Principal) (bool, error)
-
-	Groups(principal Principal) ([]Principal, error)
-}
-
 // SchemeMap stores registered Scheme name-to-instance bindings.
 type SchemeMap struct {
 	schemes map[string]Scheme
