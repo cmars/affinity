@@ -20,8 +20,9 @@ package affinity
 import (
 	"fmt"
 	"net/http"
+	"os"
 
-	"code.google.com/p/gopass"
+	"code.google.com/p/go.crypto/ssh/terminal"
 )
 
 // PasswordProvider obtains a password for authentication providers
@@ -37,17 +38,39 @@ type PasswordProvider interface {
 type PasswordPrompter struct{}
 
 func (pp *PasswordPrompter) Password() (string, error) {
-	return gopass.GetPass("Password: ")
+	fd := int(os.Stdin.Fd())
+	if !terminal.IsTerminal(fd) {
+		return "", fmt.Errorf("cannot read password input: not a terminal")
+	}
+
+	// Put terminal in raw mode
+	oldState, err := terminal.MakeRaw(fd)
+	if err != nil {
+		return "", err
+	}
+	defer terminal.Restore(fd, oldState)
+
+	_, err = fmt.Printf("Password: ")
+	if err != nil {
+		return "", err
+	}
+
+	// Line feed after password entered, since input is suppressed.
+	defer fmt.Println()
+
+	// Read the password
+	pass, err := terminal.ReadPassword(fd)
+	return string(pass), err
 }
 
 // PasswordUnavilable is never able to obtain a password.
 type PasswordUnavailable struct{}
 
 func (pu *PasswordUnavailable) Password() (string, error) {
-	return "", fmt.Errorf("Password is unavailable")
+	return "", fmt.Errorf("password is unavailable")
 }
 
-var ErrUnauthorized error = fmt.Errorf("HTTP request not authorized")
+var ErrUnauthorized error = fmt.Errorf("http request not authorized")
 
 // Scheme is a system which identifies principal user identities, and
 // provides a means for those users to prove their identity.
@@ -59,7 +82,7 @@ type Scheme interface {
 	// Authenticate checks an HTTP request for a positive identity.
 	// Returns the user identity if authentication is valid, otherwise
 	// ErrUnauthorized as a prompt to authenticate.
-	Authenticate(r *http.Request) (user User, err error)
+	Authenticate(r *http.Request) (principal Principal, err error)
 }
 
 // TokenScheme creates authorization tokens for identities and validates them.
@@ -69,11 +92,11 @@ type TokenScheme interface {
 	// Authorize creates an authorization token for the given identity.
 	// Implementations may support multiple factors
 	// (passphrases, private keys, etc.) when creating the authorization.
-	Authorize(user User) (token *TokenInfo, err error)
+	Authorize(principal Principal) (token *TokenInfo, err error)
 
 	// Validate checks an authorization token created by Authorize. If valid,
 	// returns the user identity for whom it was created.
-	Validate(token *TokenInfo) (user User, err error)
+	Validate(token *TokenInfo) (principal Principal, err error)
 }
 
 // HandshakeScheme handles handshake identity protocols such as OpenID or OAuth 2
@@ -108,7 +131,7 @@ func NewSchemeMap() *SchemeMap {
 // cannot be replaced by another scheme.
 func (sm *SchemeMap) Register(scheme Scheme) error {
 	if s, has := sm.schemes[scheme.Name()]; has {
-		return fmt.Errorf("Scheme [%s] already registered", s.Name())
+		return fmt.Errorf("scheme already registered: %q", s.Name())
 	}
 	sm.schemes[scheme.Name()] = scheme
 	return nil
@@ -160,10 +183,10 @@ func (sm *SchemeMap) Handshake(name string) HandshakeScheme {
 
 // AuthRequestToken matches and validates RFC 2617 authorization headers
 // as a principal user identity.
-func AuthRequestToken(scheme TokenScheme, r *http.Request) (User, error) {
+func AuthRequestToken(scheme TokenScheme, r *http.Request) (Principal, error) {
 	auths, has := r.Header[http.CanonicalHeaderKey("Authorization")]
 	if !has {
-		return User{}, fmt.Errorf("Request not authenticated")
+		return Principal{}, fmt.Errorf("request not authenticated")
 	}
 	for _, auth := range auths {
 		// TODO: quick prefix check of the auth string might be faster
@@ -171,14 +194,14 @@ func AuthRequestToken(scheme TokenScheme, r *http.Request) (User, error) {
 		if err != nil {
 			continue
 		}
-		if token.SchemeId != scheme.Name() {
+		if token.Scheme != scheme.Name() {
 			continue
 		}
-		user, err := scheme.Validate(token)
+		principal, err := scheme.Validate(token)
 		if err != nil {
 			continue
 		}
-		return user, nil
+		return principal, nil
 	}
-	return User{}, ErrUnauthorized
+	return Principal{}, ErrUnauthorized
 }

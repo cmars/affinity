@@ -20,7 +20,7 @@ package rbac
 import (
 	"fmt"
 
-	. "github.com/juju/affinity"
+	"github.com/juju/affinity"
 )
 
 var ErrNotFound error = fmt.Errorf("Not found")
@@ -48,7 +48,7 @@ type Resource interface {
 	// URI returns the uniform identifier for this resource.
 	URI() string
 	// ParentOf returns the resource which contains this one, or nil.
-	ParentOf() Resource
+	Parent() Resource
 }
 
 type basicResource struct {
@@ -60,7 +60,7 @@ func (br *basicResource) Capabilities() PermissionMap { return br.capabilities }
 
 func (br *basicResource) URI() string { return br.uri }
 
-func (br *basicResource) ParentOf() Resource { return nil }
+func (br *basicResource) Parent() Resource { return nil }
 
 func NewResource(uri string, capabilities ...Permission) Resource {
 	return &basicResource{uri, NewPermissionMap(capabilities...)}
@@ -104,7 +104,7 @@ func NewRole(name string, permissions ...Permission) Role {
 // can act in a given role (perform actions on) with regard to some resource object.
 type Grant interface {
 	// Principal is the subject granted permissions.
-	Principal() Principal
+	Principal() affinity.Principal
 	// Role is the predicated bundle of permissions.
 	Role() Role
 	// Resource is the object of said permissions.
@@ -131,82 +131,66 @@ func NewPermissionMap(permissions ...Permission) PermissionMap {
 	return permissionMap
 }
 
+const rbacTopic = "affinity:rbac"
+
 // Access provides query capabilities over the role-based
 // access control system.
 type Access struct {
-	Store Store
 	Roles RoleMap
+	facts *GroupFacts
 }
 
-func NewAccess(store Store, roles RoleMap) *Access {
-	return &Access{store, roles}
+func NewAccess(store FactStore, roles RoleMap) *Access {
+	return &Access{
+		Roles: roles,
+		facts: NewGroupFacts(store),
+	}
 }
 
 // HasGrant tests if the principal has been granted a role on a given resource or its container.
-func (s *Access) HasGrant(pr Principal, ro Role, r Resource) (bool, error) {
+func (s *Access) HasGrant(pr affinity.Principal, ro Role, r Resource) (bool, error) {
 	var result bool
 	var err error
 	for r != nil {
-		result, err = s.matchRole(pr, r, func(_ Role) bool {
-			return true
+		matches, err := s.facts.MatchAll(Fact{
+			Topic:     rbacTopic,
+			Subject:   pr.String(),
+			Predicate: ro.Role(),
+			Object:    r.URI(),
 		})
 		if err != nil {
 			return false, err
 		}
-		if result {
+		if len(matches) > 0 {
 			return true, nil
 		}
-		r = r.ParentOf()
+		r = r.Parent()
 	}
 	return result, err
 }
 
 // Can tests if the principal's granted roles provide a permission on a given resource or its container.
-func (s *Access) Can(pr Principal, pm Permission, r Resource) (bool, error) {
+func (s *Access) Can(pr affinity.Principal, pm Permission, r Resource) (bool, error) {
 	// Does this resource support the capability being requested?
 	if _, supported := r.Capabilities()[pm.Perm()]; !supported {
 		return false, nil
 	}
 
-	var result bool
-	var err error
 	for r != nil {
-		result, err = s.matchRole(pr, r, func(role Role) bool {
-			return role.Can(pm)
+		matches, err := s.facts.MatchAll(Fact{
+			Topic:   rbacTopic,
+			Subject: pr.String(),
+			Object:  r.URI(),
 		})
 		if err != nil {
 			return false, err
 		}
-		if result {
-			return true, nil
+		for _, match := range matches {
+			if role, ok := s.Roles[match.Predicate]; ok && role.Can(pm) {
+				return true, nil
+			}
 		}
-		r = r.ParentOf()
-	}
-	return result, err
-}
-
-func (s *Access) matchRole(pr Principal, r Resource, matchFn func(Role) bool) (bool, error) {
-	roleGrants, err := s.Store.RoleGrants(pr.String(), r.URI(), true)
-	if err != nil {
-		return false, err
-	}
-	// Add scheme wildcard grants
-	if user, is := pr.(User); is && !user.Wildcard() {
-		wildcardGrants, err := s.Store.RoleGrants(
-			User{Identity: Identity{user.Scheme, AnyId}}.String(), r.URI(), true)
-		if err != nil {
-			return false, err
-		}
-		roleGrants = append(roleGrants, wildcardGrants...)
-	}
-	for _, roleName := range roleGrants {
-		role, has := s.Roles[roleName]
-		if !has {
-			return false, fmt.Errorf("Role %s not supported", roleName)
-		}
-		if matchFn(role) {
-			return true, nil
-		}
+		r = r.Parent()
 	}
 	return false, nil
 }
@@ -217,24 +201,51 @@ type Admin struct {
 	*Access
 }
 
-func NewAdmin(store Store, roles RoleMap) *Admin {
+func NewAdmin(store FactStore, roles RoleMap) *Admin {
 	return &Admin{NewAccess(store, roles)}
 }
 
 // Grant allows a principal permissions to act upon a given resource.
-func (s *Admin) Grant(pr Principal, ro Role, rs Resource) error {
+func (s *Admin) Grant(pr affinity.Principal, ro Role, rs Resource) error {
 	can, err := s.HasGrant(pr, ro, rs)
 	if err != nil {
 		return err
 	}
 	if can {
-		return fmt.Errorf("Role %s already effectively granted to %s on %s",
+		return fmt.Errorf("role %q already effectively granted to %q on %q",
 			ro.Role(), pr.String(), rs.URI())
 	}
-	return s.Store.InsertGrant(pr.String(), ro.Role(), rs.URI())
+	return s.facts.Assert(Fact{
+		Topic:     rbacTopic,
+		Subject:   pr.String(),
+		Predicate: ro.Role(),
+		Object:    rs.URI(),
+	})
 }
 
-// Revoke removes a prior grant of permissions to a principal on a resource.
-func (s *Admin) Revoke(pr Principal, ro Role, rs Resource) error {
-	return s.Store.RemoveGrant(pr.String(), ro.Role(), rs.URI())
+// Revoke removes a prior grant specifically.
+func (s *Admin) Revoke(pr affinity.Principal, ro Role, rs Resource) error {
+	return s.facts.Deny(Fact{
+		Topic:     rbacTopic,
+		Subject:   pr.String(),
+		Predicate: ro.Role(),
+		Object:    rs.URI(),
+	})
+}
+
+func (s *Admin) RevokeAll(pr affinity.Principal) error {
+	facts, err := s.facts.MatchAll(Fact{Topic: rbacTopic, Subject: pr.String()})
+	if err != nil {
+		return err
+	}
+	return s.facts.Deny(facts...)
+}
+
+// RemoveAll removes all grants that were made on a given resource.
+func (s *Admin) RemoveAll(rs Resource) error {
+	facts, err := s.facts.MatchAll(Fact{Topic: rbacTopic, Object: rs.URI()})
+	if err != nil {
+		return err
+	}
+	return s.facts.Deny(facts...)
 }

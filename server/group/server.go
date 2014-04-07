@@ -25,7 +25,7 @@ import (
 
 	"github.com/gorilla/mux"
 
-	. "github.com/juju/affinity"
+	"github.com/juju/affinity"
 	"github.com/juju/affinity/group"
 	"github.com/juju/affinity/rbac"
 	"github.com/juju/affinity/server"
@@ -36,7 +36,7 @@ type GroupServer struct {
 	*server.AuthServer
 }
 
-func NewGroupServer(store rbac.Store) *GroupServer {
+func NewGroupServer(store rbac.FactStore) *GroupServer {
 	s := &GroupServer{server.NewAuthServer(store)}
 	s.HandleFunc("/{group}/", s.HandleGroup)
 	s.HandleFunc("/{group}/{user}/", s.HandleUser)
@@ -56,7 +56,7 @@ func (s *GroupServer) handleGroup(r *http.Request) *server.Response {
 	authUser, err := s.Authenticate(r)
 	if err != nil {
 		return &server.Response{
-			Error:      fmt.Errorf("auth failed: %v", err),
+			Error:      fmt.Errorf("auth failed: %q", err),
 			StatusCode: http.StatusUnauthorized,
 		}
 	}
@@ -81,7 +81,7 @@ func (s *GroupServer) handleGroup(r *http.Request) *server.Response {
 		return &server.Response{Error: err}
 	}
 	return &server.Response{
-		Error:      fmt.Errorf("unsupported HTTP method: %v", r.Method),
+		Error:      fmt.Errorf("unsupported HTTP method: %q", r.Method),
 		StatusCode: http.StatusMethodNotAllowed,
 	}
 }
@@ -96,7 +96,7 @@ func (s *GroupServer) handleUser(r *http.Request) *server.Response {
 	vars := mux.Vars(r)
 	groupId := vars["group"]
 	userString := vars["user"]
-	user, err := ParseUser(userString)
+	user, err := affinity.ParsePrincipal(userString)
 	if err != nil {
 		return &server.Response{Error: err}
 	}
@@ -104,7 +104,7 @@ func (s *GroupServer) handleUser(r *http.Request) *server.Response {
 	authUser, err := s.Authenticate(r)
 	if err != nil {
 		return &server.Response{
-			Error:      fmt.Errorf("auth failed: %v", err),
+			Error:      fmt.Errorf("auth failed: %q", err),
 			StatusCode: http.StatusUnauthorized,
 		}
 	}
@@ -129,7 +129,7 @@ func (s *GroupServer) handleUser(r *http.Request) *server.Response {
 		return &server.Response{Error: err}
 	}
 	return &server.Response{
-		Error:      fmt.Errorf("unsupported HTTP method: %s", r.Method),
+		Error:      fmt.Errorf("unsupported HTTP method: %q", r.Method),
 		StatusCode: http.StatusMethodNotAllowed,
 	}
 }

@@ -73,11 +73,11 @@ func (oid *OpenID) responseHost(r *http.Request) string {
 
 func (oid *OpenID) Callback(w http.ResponseWriter, r *http.Request) {
 	// verify the response
-	fullURL := fmt.Sprintf("https://%v%v", oid.responseHost(r), r.URL.String())
+	fullURL := fmt.Sprintf("https://%s%s", oid.responseHost(r), r.URL.String())
 	_, err := openid.Verify(fullURL, oid.discoveryCache, oid.nonceStore)
 	if err != nil {
 		oid.respError(w, "Unauthorized", http.StatusUnauthorized,
-			fmt.Errorf("OpenID verification failed: %v", err))
+			fmt.Errorf("open id verification failed: %q", err))
 		return
 	}
 
@@ -85,28 +85,28 @@ func (oid *OpenID) Callback(w http.ResponseWriter, r *http.Request) {
 	values, err := url.ParseQuery(r.URL.RawQuery)
 	if err != nil {
 		oid.respError(w, "Server error", http.StatusInternalServerError,
-			fmt.Errorf("Failed to parse URL query string: %v", r.URL))
+			fmt.Errorf("failed to parse URL query string: %q", r.URL))
 		return
 	}
 
 	returnTo := values.Get("openid.return_to")
 	if returnTo == "" {
 		oid.respError(w, "Server error", http.StatusInternalServerError,
-			fmt.Errorf("openid.return_to not set in callback: %v", values))
+			fmt.Errorf("openid.return_to not set in callback: %q", values))
 		return
 	}
 
 	cbuuid := values.Get("cbuuid")
 	if cbuuid == "" {
 		oid.respError(w, "Server error", http.StatusInternalServerError,
-			fmt.Errorf("cbuuid not set in callback: %v", values))
+			fmt.Errorf("cbuuid not set in callback: %q", values))
 		return
 	}
 
 	originalUrl, ok := oid.urlStore[cbuuid]
 	if !ok {
 		oid.respError(w, "Server error", http.StatusInternalServerError,
-			fmt.Errorf("cbuuid %v not found in local store", cbuuid))
+			fmt.Errorf("cbuuid not found in local store: %q", cbuuid))
 		return
 	}
 
@@ -124,7 +124,7 @@ func (oid *OpenID) Callback(w http.ResponseWriter, r *http.Request) {
 	session, err := oid.sessionStore.Get(r, oid.realm)
 	if err != nil {
 		oid.respError(w, "Server error", http.StatusInternalServerError,
-			fmt.Errorf("Failed to get session: %v", err))
+			fmt.Errorf("failed to get session: %q", err))
 		return
 	}
 
@@ -140,7 +140,7 @@ func (oid *OpenID) Callback(w http.ResponseWriter, r *http.Request) {
 	err = sessions.Save(r, w)
 	if err != nil {
 		oid.respError(w, "Server error", http.StatusInternalServerError,
-			fmt.Errorf("Failed to save session: %v", err))
+			fmt.Errorf("failed to save session: %q", err))
 		return
 	}
 
@@ -178,11 +178,11 @@ func (oid *OpenID) OpRedirect(authorityURL string, w http.ResponseWriter, r *htt
 	cbuuid := uuid.NewRandom()
 
 	// store the original user requested url
-	originalUrl := fmt.Sprintf("https://%v%v", oid.responseHost(r), r.URL.String())
+	originalUrl := fmt.Sprintf("https://%s%s", oid.responseHost(r), r.URL.String())
 	oid.urlStore[cbuuid.String()] = originalUrl
 
 	// now redirect to the authority
-	fullURL := fmt.Sprintf("https://%v%v?cbuuid=%v", oid.responseHost(r), "/openidcallback", cbuuid)
+	fullURL := fmt.Sprintf("https://%s%s?cbuuid=%s", oid.responseHost(r), "/openidcallback", cbuuid)
 	if redirectUrl, err := openid.RedirectUrl(authorityURL, fullURL, ""); err == nil {
 		http.Redirect(w, r, redirectUrl, http.StatusSeeOther)
 		return nil

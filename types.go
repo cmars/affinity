@@ -28,78 +28,50 @@ import (
 const AnyId = "*"
 
 // Principal defines a singular or corporate identity.
-type Principal interface {
-	// String returns a string representation of the principal
-	String() string
-	// SchemeId returns the scheme and distinct identity of the principal
-	SchemeId() (string, string)
-	// Contains tests if a given user is contained by this one.
-	// Functionally, Contains behaves according to the following rules:
-	// A User contains itself and only itself.
-	// A Group contains a given user if that user is a member, or contained by
-	// some member of the group.
-	Contains(member Principal) bool
+type Principal struct {
+	Scheme string
+	Id     string
 }
 
-// Group defines a corporate principal identity composed of zero or more principal members.
-type Group struct {
-	Identity
-	Members []Principal
+// Equals tests if two Principal instances are identical.
+func (p Principal) Equals(other Principal) bool {
+	return p.Scheme == other.Scheme && p.Id == other.Id
 }
 
-// User defines a singular, individual principal identity.
-type User struct {
-	Identity
-}
-
-// Identity defines a principal identifier distinct within an authentication scheme.
-type Identity struct {
-	Scheme, Id string
-}
-
-// Equals tests if two Identity instances are identical.
-func (id Identity) Equals(other Identity) bool {
-	return id.Scheme == other.Scheme && id.Id == other.Id
+func (p Principal) Contains(other Principal) bool {
+	if p.Wildcard() {
+		return p.Scheme == other.Scheme
+	}
+	return p.Equals(other)
 }
 
 // String returns a human-readable, locally-unique URI representation of the identity.
-func (id Identity) String() string {
-	return fmt.Sprintf("%s:%s", id.Scheme, id.Id)
+func (p Principal) String() string {
+	return fmt.Sprintf("%s:%s", p.Scheme, p.Id)
 }
 
-func (id Identity) SchemeId() (string, string) {
-	return id.Scheme, id.Id
+func (p Principal) Wildcard() bool {
+	return p.Id == AnyId
 }
 
-func (user User) Wildcard() bool {
-	return user.Id == AnyId
-}
-
-func (user User) Contains(p Principal) bool {
-	scheme, id := p.SchemeId()
-	if user.Wildcard() {
-		return user.Scheme == scheme
-	}
-	return user.Scheme == scheme && user.Id == id
-}
-
-// ParseUser parses a locally-unique URI representation of an identity into a User.
-func ParseUser(s string) (u User, err error) {
+// ParsePrincipal parses a locally-unique URI representation of an identity into a Principal.
+func ParsePrincipal(s string) (p Principal, err error) {
 	i := strings.Index(s, ":")
 	if i == -1 || i == 0 || i == len(s)-1 {
-		return u, fmt.Errorf("Parse error: invalid User format '%v'", s)
+		return p, fmt.Errorf("parse error: invalid User format: %q", s)
 	}
-	return User{Identity: Identity{s[0:i], s[i+1:]}}, nil
+	return Principal{Scheme: s[0:i], Id: s[i+1:]}, nil
 }
 
-func MustParseUser(s string) User {
-	u, err := ParseUser(s)
+func MustParsePrincipal(s string) Principal {
+	p, err := ParsePrincipal(s)
 	if err != nil {
 		panic(err)
 	}
-	return u
+	return p
 }
 
+/*
 // Contains tests if the principal is contained by the group, including
 // subgroups.
 func (g Group) Contains(p Principal) bool {
@@ -125,19 +97,20 @@ func (g Group) Contains(p Principal) bool {
 	}
 	return false
 }
+*/
 
 // TokenInfo stores any RFC 2617 authorization token data,
 // including custom provider tokens.
 type TokenInfo struct {
-	SchemeId string
-	Values   url.Values
+	Scheme string
+	Values url.Values
 }
 
 // NewTokenInfo creates a new TokenInfo instance.
-func NewTokenInfo(schemeId string) *TokenInfo {
+func NewTokenInfo(scheme string) *TokenInfo {
 	return &TokenInfo{
-		SchemeId: schemeId,
-		Values:   url.Values{},
+		Scheme: scheme,
+		Values: url.Values{},
 	}
 }
 
@@ -150,18 +123,18 @@ func (t *TokenInfo) Realm() string {
 func ParseTokenInfo(header string) (*TokenInfo, error) {
 	parts := strings.SplitN(header, " ", 2)
 	if len(parts) < 2 {
-		return nil, fmt.Errorf("Malformed authentication header: %s", header)
+		return nil, fmt.Errorf("malformed authentication header: %q", header)
 	}
-	schemeId := parts[0]
+	scheme := parts[0]
 	paramString := parts[1]
 
-	token := &TokenInfo{SchemeId: schemeId, Values: url.Values{}}
+	token := &TokenInfo{Scheme: scheme, Values: url.Values{}}
 	parts = strings.Split(paramString, ",")
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
 		kvpair := strings.Split(part, "=")
 		if len(kvpair) != 2 {
-			return nil, fmt.Errorf("Malformed authentication param: %s", part)
+			return nil, fmt.Errorf("malformed authentication param: %q", part)
 		}
 		key, value := kvpair[0], kvpair[1]
 		value = strings.Trim(value, `"`)
@@ -174,7 +147,7 @@ func ParseTokenInfo(header string) (*TokenInfo, error) {
 // Serialize renders an RFC 2617-compatible authorization string.
 func (t *TokenInfo) Serialize() string {
 	var buf bytes.Buffer
-	fmt.Fprintf(&buf, "%s", t.SchemeId)
+	fmt.Fprintf(&buf, "%s", t.Scheme)
 	first := true
 	for key, values := range t.Values {
 		for _, value := range values {

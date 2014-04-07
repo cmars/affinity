@@ -9,7 +9,7 @@ import (
 	. "launchpad.net/gocheck"
 	juju_testing "launchpad.net/juju-core/testing"
 
-	"github.com/juju/affinity/storage/mongo"
+	"github.com/juju/affinity/rbac/storage/mongo"
 	testing "github.com/juju/affinity/testing"
 )
 
@@ -41,11 +41,11 @@ func (s *MongoAuthSuite) reset() {
 func (s *MongoAuthSuite) setPassword() error {
 	store := s.Session.DB("affinity_store_suite_auth")
 	if err := store.AddUser("admin", "password", false); err != nil && err.Error() != "need to login" {
-		return fmt.Errorf("cannot set admin password: %v", err)
+		return fmt.Errorf("cannot set admin password: %q", err)
 	}
 	rbac := s.Session.DB("affinity_rbac_suite_auth")
 	if err := rbac.AddUser("admin", "password", false); err != nil && err.Error() != "need to login" {
-		return fmt.Errorf("cannot set admin password: %v", err)
+		return fmt.Errorf("cannot set admin password: %q", err)
 	}
 	return nil
 }
@@ -55,13 +55,13 @@ func (s *MongoAuthSuite) SetUpTest(c *C) {
 	s.Session = juju_testing.MgoServer.MustDial()
 	c.Assert(s.setPassword(), IsNil)
 	{
-		store, err := mongo.NewMongoStore(s.Session, "affinity_store_suite_auth", "admin", "password")
+		store, err := mongo.NewFactStore(s.Session, s.Session.DB("affinity_store_suite_auth"), "facts")
 		c.Assert(err, IsNil)
 		s.StoreSuite = testing.NewStoreSuite(store)
 		s.StoreTests.SetUp(c)
 	}
 	{
-		store, err := mongo.NewMongoStore(s.Session, "affinity_rbac_suite_auth", "admin", "password")
+		store, err := mongo.NewFactStore(s.Session, s.Session.DB("affinity_rbac_suite_auth"), "facts")
 		c.Assert(err, IsNil)
 		s.RbacSuite = testing.NewRbacSuite(store)
 		s.RbacTests.SetUp(c)

@@ -24,8 +24,9 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
-	. "github.com/juju/affinity"
+	"github.com/juju/affinity"
 	"github.com/juju/affinity/client"
 )
 
@@ -55,7 +56,7 @@ func (c *GroupClient) DeleteGroup(group string) error {
 	return err
 }
 
-func (c *GroupClient) GetGroup(group string) (g Group, err error) {
+func (c *GroupClient) GetGroup(group string) (g affinity.Principal, err error) {
 	out, err := c.doGroupRequest(group, "GET")
 	if err != nil {
 		return g, err
@@ -67,7 +68,7 @@ func (c *GroupClient) GetGroup(group string) (g Group, err error) {
 func (c *GroupClient) doGroupRequest(group string, method string) ([]byte, error) {
 	var u url.URL
 	u = c.Url
-	u.Path = fmt.Sprintf("/%v/", group)
+	u.Path = fmt.Sprintf("/%s/", group)
 	req, err := http.NewRequest(method, u.String(), nil)
 	if err != nil {
 		return nil, err
@@ -78,32 +79,32 @@ func (c *GroupClient) doGroupRequest(group string, method string) ([]byte, error
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf(resp.Status)
+		return nil, fmt.Errorf(strings.ToLower(resp.Status))
 	}
 	var buf bytes.Buffer
 	_, err = io.Copy(&buf, resp.Body)
 	return buf.Bytes(), err
 }
 
-func (c *GroupClient) AddUser(group string, user User) error {
+func (c *GroupClient) AddUser(group string, user affinity.Principal) error {
 	_, err := c.doUserRequest(group, user, "PUT")
 	return err
 }
 
-func (c *GroupClient) DeleteUser(group string, user User) error {
+func (c *GroupClient) DeleteUser(group string, user affinity.Principal) error {
 	_, err := c.doUserRequest(group, user, "DELETE")
 	return err
 }
 
-func (c *GroupClient) CheckUser(group string, user User) error {
+func (c *GroupClient) CheckUser(group string, user affinity.Principal) error {
 	_, err := c.doUserRequest(group, user, "GET")
 	return err
 }
 
-func (c *GroupClient) doUserRequest(group string, user User, method string) ([]byte, error) {
+func (c *GroupClient) doUserRequest(group string, user affinity.Principal, method string) ([]byte, error) {
 	var u url.URL
 	u = c.Url
-	u.Path = fmt.Sprintf("/%v/%v/", group, user.String())
+	u.Path = fmt.Sprintf("/%s/%s/", group, user.String())
 	req, err := http.NewRequest(method, u.String(), nil)
 	if err != nil {
 		return nil, err
@@ -114,7 +115,7 @@ func (c *GroupClient) doUserRequest(group string, user User, method string) ([]b
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf(resp.Status)
+		return nil, fmt.Errorf(strings.ToLower(resp.Status))
 	}
 	var buf bytes.Buffer
 	_, err = io.Copy(&buf, resp.Body)

@@ -15,7 +15,7 @@ func (mb *mbConn) post(msg string) (int, error) {
 	return messageBoardLastId, nil
 }
 
-func (mb *mbConn) Ban(user User, nsecs int) error {
+func (mb *mbConn) Ban(user Principal, nsecs int) error {
 	panic("not impl")
 }
 

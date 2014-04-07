@@ -18,7 +18,7 @@
 package group
 
 import (
-	. "github.com/juju/affinity/rbac"
+	"github.com/juju/affinity/rbac"
 )
 
 // AffinityGroupsUri defines a namespace for roles affecting the entire
@@ -70,36 +70,36 @@ type RevokeOnServicePerm struct{}
 
 func (p RevokeOnServicePerm) Perm() string { return "revoke-on-service" }
 
-var creatorCapabilities PermissionMap = NewPermissionMap(
+var creatorCapabilities rbac.PermissionMap = rbac.NewPermissionMap(
 	AddGroupPerm{},
 )
 
-var ownerCapabilities PermissionMap = NewPermissionMap(
+var ownerCapabilities rbac.PermissionMap = rbac.NewPermissionMap(
 	GrantOnGroupPerm{}, RevokeOnGroupPerm{},
 	RemoveGroupPerm{},
 	AddMemberPerm{}, RemoveMemberPerm{},
 	CheckMemberPerm{},
 )
 
-var adminCapabilities PermissionMap = NewPermissionMap(
+var adminCapabilities rbac.PermissionMap = rbac.NewPermissionMap(
 	AddMemberPerm{}, RemoveMemberPerm{},
 	CheckMemberPerm{},
 )
 
-var observerCapabilities PermissionMap = NewPermissionMap(
+var observerCapabilities rbac.PermissionMap = rbac.NewPermissionMap(
 	CheckMemberPerm{},
 )
 
-var serviceCapabilities PermissionMap = NewPermissionMap(
+var serviceCapabilities rbac.PermissionMap = rbac.NewPermissionMap(
 	GrantOnServicePerm{}, RevokeOnServicePerm{}, AddGroupPerm{},
 )
 
 type groupRole struct {
 	name         string
-	capabilities PermissionMap
+	capabilities rbac.PermissionMap
 }
 
-func (gr *groupRole) Capabilities() PermissionMap {
+func (gr *groupRole) Capabilities() rbac.PermissionMap {
 	return gr.capabilities
 }
 
@@ -107,7 +107,7 @@ func (gr *groupRole) Role() string {
 	return gr.name
 }
 
-func (gr *groupRole) Can(do Permission) bool {
+func (gr *groupRole) Can(do rbac.Permission) bool {
 	_, has := gr.capabilities[do.Perm()]
 	return has
 }
@@ -129,22 +129,22 @@ var ObserverRole *groupRole = &groupRole{"observer", observerCapabilities}
 
 type groupResource string
 
-func (_ groupResource) Capabilities() PermissionMap { return ownerCapabilities }
+func (_ groupResource) Capabilities() rbac.PermissionMap { return ownerCapabilities }
 
 func (gr groupResource) URI() string { return string(gr) }
 
-func (gr groupResource) ParentOf() Resource { return ServiceResource }
+func (gr groupResource) Parent() rbac.Resource { return ServiceResource }
 
 type serviceResource struct{}
 
-func (_ serviceResource) Capabilities() PermissionMap {
+func (_ serviceResource) Capabilities() rbac.PermissionMap {
 	return serviceCapabilities
 }
 
 func (_ serviceResource) URI() string { return AffinityGroupsUri }
 
-func (_ serviceResource) ParentOf() Resource { return nil }
+func (_ serviceResource) Parent() rbac.Resource { return nil }
 
-var ServiceResource Resource = serviceResource{}
+var ServiceResource rbac.Resource = serviceResource{}
 
-var GroupRoles RoleMap = NewRoleMap(ServiceRole, CreatorRole, OwnerRole, AdminRole, ObserverRole)
+var GroupRoles rbac.RoleMap = rbac.NewRoleMap(ServiceRole, CreatorRole, OwnerRole, AdminRole, ObserverRole)

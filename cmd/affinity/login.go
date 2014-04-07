@@ -25,7 +25,7 @@ import (
 
 	"launchpad.net/gnuflag"
 
-	. "github.com/juju/affinity"
+	"github.com/juju/affinity"
 	"github.com/juju/affinity/client"
 	"github.com/juju/affinity/providers/usso"
 )
@@ -51,7 +51,7 @@ func (c *loginCmd) Name() string { return "login" }
 func (c *loginCmd) Desc() string { return "Log in to generate an affinity credential" }
 
 func (c *loginCmd) Main() {
-	schemes := NewSchemeMap()
+	schemes := affinity.NewSchemeMap()
 
 	if c.url == "" {
 		Usage(c, "--url is required")
@@ -68,16 +68,16 @@ func (c *loginCmd) Main() {
 		die(err)
 	}
 	schemes.Register(usso.NewOauthCli(fmt.Sprintf("affinity@%s", serverUrl.Host),
-		&PasswordPrompter{}))
+		&affinity.PasswordPrompter{}))
 
-	user, err := ParseUser(c.user)
+	user, err := affinity.ParsePrincipal(c.user)
 	if err != nil {
 		die(err)
 	}
 
 	scheme := schemes.Token(user.Scheme)
 	if scheme == nil {
-		die(fmt.Errorf("Scheme '%s' is not supported", user.Scheme))
+		die(fmt.Errorf("scheme is not supported: %q", user.Scheme))
 	}
 
 	token, err := scheme.Authorize(user)

@@ -128,7 +128,7 @@ type facilitiesResource struct {
 
 func (_ facilitiesResource) Capabilities() rbac.PermissionMap { return FacilitiesCapabilities }
 func (r facilitiesResource) URI() string                      { return r.name }
-func (r facilitiesResource) ParentOf() rbac.Resource {
+func (r facilitiesResource) Parent() rbac.Resource {
 	if r.parent == nil {
 		return nil
 	}
@@ -139,23 +139,23 @@ type spacecraftResource string
 
 func (_ spacecraftResource) Capabilities() rbac.PermissionMap { return SpacecraftCapabilities }
 func (r spacecraftResource) URI() string                      { return string(r) }
-func (_ spacecraftResource) ParentOf() rbac.Resource          { return nil }
+func (_ spacecraftResource) Parent() rbac.Resource            { return nil }
 
 type medicalResource string
 
 func (_ medicalResource) Capabilities() rbac.PermissionMap { return MedicalCapabilities }
 func (r medicalResource) URI() string                      { return string(r) }
-func (_ medicalResource) ParentOf() rbac.Resource          { return nil }
+func (_ medicalResource) Parent() rbac.Resource            { return nil }
 
 type bureaucraticResource string
 
 func (_ bureaucraticResource) Capabilities() rbac.PermissionMap { return BureaucraticCapabilities }
 func (r bureaucraticResource) URI() string                      { return string(r) }
-func (_ bureaucraticResource) ParentOf() rbac.Resource          { return nil }
+func (_ bureaucraticResource) Parent() rbac.Resource            { return nil }
 
-func NewRbacSuite(s rbac.Store) *RbacSuite {
+func NewRbacSuite(s rbac.FactStore) *RbacSuite {
 	return &RbacSuite{
-		&RbacTests{&StoreTests{s},
+		&RbacTests{&StoreTests{rbac.NewGroupFacts(s)},
 			rbac.NewAccess(s, FuturamaRoles),
 			rbac.NewAdmin(s, FuturamaRoles),
 		},
@@ -178,7 +178,7 @@ func (s *RbacSuite) SetUp(c *C) {
 		default:
 			c.Fail()
 		}
-		u := MustParseUser(grant.principal)
+		u := MustParsePrincipal(grant.principal)
 		role, has := FuturamaRoles[grant.role]
 		c.Assert(has, Equals, true)
 		err := s.Admin.Grant(u, role, rc)
@@ -190,31 +190,31 @@ func (s *RbacSuite) TestScruffyAcls(c *C) {
 	var can bool
 	// Scruffy should be able to empty the bucket
 	can, _ = s.Access.Can(
-		MustParseUser("test:scruffy"),
+		MustParsePrincipal("test:scruffy"),
 		EmptyBucketPerm{},
 		facilitiesResource{name: "facilities:bucket"})
 	c.Assert(can, Equals, true)
 	// Scruffy should not be able to empty some other bucket we haven't granted the role on
 	can, _ = s.Access.Can(
-		MustParseUser("test:scruffy"),
+		MustParsePrincipal("test:scruffy"),
 		EmptyBucketPerm{},
 		facilitiesResource{name: "walrus:bucket"})
 	c.Assert(can, Equals, false)
 	// Scruffy should not be able to empty the ship like it was a bucket
 	can, _ = s.Access.Can(
-		MustParseUser("test:scruffy"),
+		MustParsePrincipal("test:scruffy"),
 		EmptyBucketPerm{},
 		facilitiesResource{name: "spacecraft:ship"})
 	c.Assert(can, Equals, false)
 	// Scruffy should not be able to board the ship. Sorry Scruffy, it's canon.
 	can, _ = s.Access.Can(
-		MustParseUser("test:scruffy"),
+		MustParsePrincipal("test:scruffy"),
 		BoardShipPerm{},
 		spacecraftResource("spacecraft:ship"))
 	c.Assert(can, Equals, false)
 	// Crew member should not be able to wield the mighty bucket
 	can, _ = s.Access.Can(
-		MustParseUser("test:fry"),
+		MustParsePrincipal("test:fry"),
 		FillBucketPerm{},
 		facilitiesResource{name: "facilities:bucket"})
 }
@@ -223,25 +223,25 @@ func (s *RbacSuite) TestSpacecraftAcls(c *C) {
 	var can bool
 	// Leela should be able to fly the ship.
 	can, _ = s.Access.Can(
-		MustParseUser("test:leela"),
+		MustParsePrincipal("test:leela"),
 		ControlShipPerm{},
 		spacecraftResource("spacecraft:ship"))
 	c.Assert(can, Equals, true)
 	// Leela should be able to board the ship.
 	can, _ = s.Access.Can(
-		MustParseUser("test:leela"),
+		MustParsePrincipal("test:leela"),
 		BoardShipPerm{},
 		spacecraftResource("spacecraft:ship"))
 	c.Assert(can, Equals, true)
 	// Fry should be able to fly the ship.
 	can, _ = s.Access.Can(
-		MustParseUser("test:fry"),
+		MustParsePrincipal("test:fry"),
 		ControlShipPerm{},
 		spacecraftResource("spacecraft:ship"))
 	c.Assert(can, Equals, false)
 	// Fry should be able to board the ship.
 	can, _ = s.Access.Can(
-		MustParseUser("test:fry"),
+		MustParsePrincipal("test:fry"),
 		BoardShipPerm{},
 		spacecraftResource("spacecraft:ship"))
 	c.Assert(can, Equals, true)
@@ -250,7 +250,7 @@ func (s *RbacSuite) TestSpacecraftAcls(c *C) {
 func (s *RbacSuite) TestResourceParentGrant(c *C) {
 	building := facilitiesResource{name: "planet-express-hq"}
 	vendingMachine := facilitiesResource{name: "vending-machine", parent: &building}
-	bender := MustParseUser("test:bender")
+	bender := MustParsePrincipal("test:bender")
 	s.Admin.Grant(bender, UserRole, building)
 
 	can, err := s.Access.Can(bender, UseThingPerm{}, building)

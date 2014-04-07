@@ -29,8 +29,8 @@ import (
 	"github.com/juju/affinity/group"
 	"github.com/juju/affinity/providers/usso"
 	"github.com/juju/affinity/rbac"
-	. "github.com/juju/affinity/server/group"
-	"github.com/juju/affinity/storage/mongo"
+	"github.com/juju/affinity/rbac/storage/mongo"
+	server_group "github.com/juju/affinity/server/group"
 )
 
 type serveCmd struct {
@@ -74,17 +74,17 @@ func (c *serveCmd) Main() {
 	if err != nil {
 		die(err)
 	}
-	store, err := mongo.NewMongoStore(session, c.dbname, "", "")
+	store, err := mongo.NewFactStore(session, session.DB(c.dbname), "rbac")
 	if err != nil {
 		die(err)
 	}
 
-	s := NewGroupServer(store)
+	s := server_group.NewGroupServer(store)
 
 	// Grant service role to configured admins
 	for _, serviceAdmin := range c.serviceAdmins {
 		admin := rbac.NewAdmin(store, group.GroupRoles)
-		u, err := affinity.ParseUser(serviceAdmin)
+		u, err := affinity.ParsePrincipal(serviceAdmin)
 		if err != nil {
 			die(err)
 		}

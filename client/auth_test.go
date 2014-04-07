@@ -14,7 +14,7 @@ func (s *ClientSuite) TestGetSetExists(c *C) {
 	_, err := s.Store.Get("foo", "example.com")
 	c.Check(err, NotNil)
 	c.Assert(err, DeepEquals, client.ErrAuthNotFound)
-	err = s.Store.Set(&TokenInfo{SchemeId: "foo", Values: url.Values{"secret": []string{"squirrel"}}}, "example.com")
+	err = s.Store.Set(&TokenInfo{Scheme: "foo", Values: url.Values{"secret": []string{"squirrel"}}}, "example.com")
 	c.Assert(err, IsNil)
 	token, err := s.Store.Get("foo", "example.com")
 	c.Check(err, IsNil)
@@ -23,14 +23,14 @@ func (s *ClientSuite) TestGetSetExists(c *C) {
 
 func (s *ClientSuite) TestDistinctSchemesEndpoints(c *C) {
 	var err error
-	err = s.Store.Set(&TokenInfo{SchemeId: "foo", Values: url.Values{"secret": []string{"squirrel"}}}, "example.com")
+	err = s.Store.Set(&TokenInfo{Scheme: "foo", Values: url.Values{"secret": []string{"squirrel"}}}, "example.com")
 	c.Assert(err, IsNil)
-	err = s.Store.Set(&TokenInfo{SchemeId: "bar", Values: url.Values{"scooby": []string{"snack"}}}, "example.com")
+	err = s.Store.Set(&TokenInfo{Scheme: "bar", Values: url.Values{"scooby": []string{"snack"}}}, "example.com")
 	c.Assert(err, IsNil)
 
-	err = s.Store.Set(&TokenInfo{SchemeId: "foo", Values: url.Values{"captain": []string{"caveman"}}}, "example.com:8080")
+	err = s.Store.Set(&TokenInfo{Scheme: "foo", Values: url.Values{"captain": []string{"caveman"}}}, "example.com:8080")
 	c.Assert(err, IsNil)
-	err = s.Store.Set(&TokenInfo{SchemeId: "bar", Values: url.Values{"hacksaw": []string{"duggan"}}}, "example.com:8080")
+	err = s.Store.Set(&TokenInfo{Scheme: "bar", Values: url.Values{"hacksaw": []string{"duggan"}}}, "example.com:8080")
 	c.Assert(err, IsNil)
 
 	token, err := s.Store.Get("foo", "example.com")
@@ -66,7 +66,7 @@ func (s *ClientSuite) TestWantsAuth(c *C) {
 	var foo *TokenInfo
 	var bar *TokenInfo
 	for _, token := range tokens {
-		switch token.SchemeId {
+		switch token.Scheme{
 		case "Foo":
 			foo = token
 		case "Bar":

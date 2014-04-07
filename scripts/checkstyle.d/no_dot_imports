@@ -1,0 +1,8 @@
+#!/bin/sh
+
+NODOT_IMPORTS=$(grep --include=*.go -rn '\. "' | egrep -v '_test|testing/')
+if [ -n "$NODOT_IMPORTS" ]; then
+	echo "The following non-test source files are using '.' imports:"
+	echo "$NODOT_IMPORTS"
+	exit 1
+fi

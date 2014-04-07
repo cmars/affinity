@@ -24,7 +24,7 @@ import (
 
 	"github.com/gorilla/mux"
 
-	. "github.com/juju/affinity"
+	"github.com/juju/affinity"
 	"github.com/juju/affinity/rbac"
 )
 
@@ -49,15 +49,15 @@ func (r *Response) Send(w http.ResponseWriter) {
 
 type AuthServer struct {
 	*mux.Router
-	Store   rbac.Store
-	Schemes *SchemeMap
+	Store   rbac.FactStore
+	Schemes *affinity.SchemeMap
 }
 
-func NewAuthServer(store rbac.Store) *AuthServer {
-	return &AuthServer{mux.NewRouter(), store, NewSchemeMap()}
+func NewAuthServer(store rbac.FactStore) *AuthServer {
+	return &AuthServer{mux.NewRouter(), store, affinity.NewSchemeMap()}
 }
 
-func (s *AuthServer) Authenticate(r *http.Request) (user User, err error) {
+func (s *AuthServer) Authenticate(r *http.Request) (user affinity.Principal, err error) {
 	auths, has := r.Header[http.CanonicalHeaderKey("Authorization")]
 	if !has {
 		// If the request does not have an authorization header,
@@ -68,14 +68,14 @@ func (s *AuthServer) Authenticate(r *http.Request) (user User, err error) {
 				return user, err
 			}
 		}
-		return User{}, ErrUnauthorized
+		return affinity.Principal{}, affinity.ErrUnauthorized
 	}
 	for _, auth := range auths {
-		token, err := ParseTokenInfo(auth)
+		token, err := affinity.ParseTokenInfo(auth)
 		if err != nil {
 			continue
 		}
-		scheme := s.Schemes.Token(token.SchemeId)
+		scheme := s.Schemes.Token(token.Scheme)
 		if scheme == nil {
 			continue
 		}
@@ -85,5 +85,5 @@ func (s *AuthServer) Authenticate(r *http.Request) (user User, err error) {
 		}
 		return user, nil
 	}
-	return User{}, ErrUnauthorized
+	return affinity.Principal{}, affinity.ErrUnauthorized
 }

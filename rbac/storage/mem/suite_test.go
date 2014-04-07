@@ -15,14 +15,14 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-package rbac_test
+package mem_test
 
 import (
 	stdtesting "testing"
 
 	. "launchpad.net/gocheck"
 
-	"github.com/juju/affinity/storage/mem"
+	"github.com/juju/affinity/rbac/storage/mem"
 	"github.com/juju/affinity/testing"
 )
 
@@ -36,8 +36,8 @@ func Test(t *stdtesting.T) { TestingT(t) }
 var _ = Suite(&AffinitySuite{})
 
 func (s *AffinitySuite) SetUpTest(c *C) {
-	s.StoreSuite = testing.NewStoreSuite(mem.NewStore())
+	s.StoreSuite = testing.NewStoreSuite(mem.NewFactStore())
 	s.StoreSuite.SetUp(c)
-	s.RbacSuite = testing.NewRbacSuite(mem.NewStore())
+	s.RbacSuite = testing.NewRbacSuite(mem.NewFactStore())
 	s.RbacSuite.SetUp(c)
 }

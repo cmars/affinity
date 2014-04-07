@@ -27,7 +27,7 @@ import (
 	"github.com/gorilla/sessions"
 	"launchpad.net/usso"
 
-	. "github.com/juju/affinity"
+	"github.com/juju/affinity"
 	"github.com/juju/affinity/providers/common"
 )
 
@@ -39,7 +39,7 @@ func (s *scheme) Name() string { return "usso" }
 
 type tokenScheme struct {
 	scheme
-	passProv PasswordProvider
+	passProv affinity.PasswordProvider
 	token    string
 }
 
@@ -51,7 +51,7 @@ type handshakeScheme struct {
 // NewOpenIDWeb creates a new Ubuntu SSO OpenID authentication helper.  When
 // redirectHost is "", OpenID redirects will use the same hostname as the
 // request.
-func NewOpenIdWeb(token string, redirectHost string, sessionStore sessions.Store) HandshakeScheme {
+func NewOpenIdWeb(token string, redirectHost string, sessionStore sessions.Store) affinity.HandshakeScheme {
 	return &handshakeScheme{
 		scheme: scheme{
 			token: token,
@@ -60,7 +60,7 @@ func NewOpenIdWeb(token string, redirectHost string, sessionStore sessions.Store
 	}
 }
 
-func NewOauthCli(token string, passProv PasswordProvider) TokenScheme {
+func NewOauthCli(token string, passProv affinity.PasswordProvider) affinity.TokenScheme {
 	return &tokenScheme{
 		scheme: scheme{
 			token: token,
@@ -69,12 +69,12 @@ func NewOauthCli(token string, passProv PasswordProvider) TokenScheme {
 	}
 }
 
-func (s *handshakeScheme) Authenticate(r *http.Request) (User, error) {
+func (s *handshakeScheme) Authenticate(r *http.Request) (affinity.Principal, error) {
 	session, err := s.openID.Authenticate(r)
 	if err != nil {
-		return User{}, err
+		return affinity.Principal{}, err
 	}
-	return User{Identity{Scheme: s.Name(), Id: s.openID.Email(session)}}, nil
+	return affinity.Principal{Scheme: s.Name(), Id: s.openID.Email(session)}, nil
 }
 
 func (s *handshakeScheme) SignIn(w http.ResponseWriter, r *http.Request) error {
@@ -85,13 +85,13 @@ func (s *handshakeScheme) Authenticated(w http.ResponseWriter, r *http.Request) 
 	s.openID.Callback(w, r)
 }
 
-func (s *tokenScheme) Authenticate(r *http.Request) (User, error) {
-	return AuthRequestToken(s, r)
+func (s *tokenScheme) Authenticate(r *http.Request) (affinity.Principal, error) {
+	return affinity.AuthRequestToken(s, r)
 }
 
-func (s *tokenScheme) Authorize(user User) (token *TokenInfo, err error) {
-	if user.Identity.Scheme != s.Name() {
-		return nil, fmt.Errorf("Cannot authorize scheme %s", user.Identity.Scheme)
+func (s *tokenScheme) Authorize(user affinity.Principal) (token *affinity.TokenInfo, err error) {
+	if user.Scheme != s.Name() {
+		return nil, fmt.Errorf("cannot authorize scheme: %q", user.Scheme)
 	}
 
 	pass, err := s.passProv.Password()
@@ -99,13 +99,13 @@ func (s *tokenScheme) Authorize(user User) (token *TokenInfo, err error) {
 		return nil, err
 	}
 
-	ssoData, err := usso.ProductionUbuntuSSOServer.GetToken(user.Identity.Id, pass, s.token)
+	ssoData, err := usso.ProductionUbuntuSSOServer.GetToken(user.Id, pass, s.token)
 	if err != nil {
 		return nil, err
 	}
 
-	return &TokenInfo{
-		SchemeId: s.Name(),
+	return &affinity.TokenInfo{
+		Scheme: s.Name(),
 		Values: url.Values{
 			"ConsumerKey":    []string{ssoData.ConsumerKey},
 			"ConsumerSecret": []string{ssoData.ConsumerSecret},
@@ -116,35 +116,35 @@ func (s *tokenScheme) Authorize(user User) (token *TokenInfo, err error) {
 	}, nil
 }
 
-func (s *tokenScheme) Validate(token *TokenInfo) (User, error) {
+func (s *tokenScheme) Validate(token *affinity.TokenInfo) (affinity.Principal, error) {
 	var err error
-	luser := User{}
-	if token.SchemeId != s.Name() {
-		return luser, fmt.Errorf("%s: Not an Ubuntu SSO token", token.SchemeId)
+	luser := affinity.Principal{}
+	if token.Scheme != s.Name() {
+		return luser, fmt.Errorf("not an Ubuntu SSO token: %q", token.Scheme)
 	}
 	consumerKey := token.Values.Get("ConsumerKey")
 	if consumerKey == "" {
-		err = fmt.Errorf("No ConsumerKey provided in authorization")
+		err = fmt.Errorf("missing OAuth attribute: ConsumerKey")
 		return luser, err
 	}
 	consumerSecret := token.Values.Get("ConsumerSecret")
 	if consumerSecret == "" {
-		err = fmt.Errorf("No ConsumerSecret provided in authorization")
+		err = fmt.Errorf("missing OAuth attribute: ConsumerSecret")
 		return luser, err
 	}
 	tokenKey := token.Values.Get("TokenKey")
 	if tokenKey == "" {
-		err = fmt.Errorf("No TokenKey provided in authorization")
+		err = fmt.Errorf("missing OAuth attribute: TokenKey")
 		return luser, err
 	}
 	tokenSecret := token.Values.Get("TokenSecret")
 	if tokenSecret == "" {
-		err = fmt.Errorf("No TokenSecret provided in authorization")
+		err = fmt.Errorf("missing OAuth attribute: TokenSecret")
 		return luser, err
 	}
 	tokenName := token.Values.Get("TokenName")
 	if tokenName == "" {
-		err = fmt.Errorf("No TokenName provided in authorization")
+		err = fmt.Errorf("missing OAuth attribute: TokenName")
 		return luser, err
 	}
 	// construct sso data collection for validation
@@ -157,13 +157,13 @@ func (s *tokenScheme) Validate(token *TokenInfo) (User, error) {
 	}
 	resultRaw, err := usso.ProductionUbuntuSSOServer.GetAccounts(&ssoData)
 	if err != nil {
-		log.Printf("Failed to validate USSO token data: %v", err)
+		log.Printf("failed to validate Ubuntu SSO token data: %q", err)
 		return luser, err
 	}
 	result := map[string]interface{}{}
 	err = json.Unmarshal([]byte(resultRaw), &result)
 	if err != nil {
-		log.Printf("Failed to decode USSO data: %v", err)
+		log.Printf("failed to decode Ubuntu SSO token data: %q", err)
 		return luser, err
 	}
 
@@ -172,13 +172,13 @@ func (s *tokenScheme) Validate(token *TokenInfo) (User, error) {
 	_, hasDisplayName := result["displayname"]
 	_, hasTokens := result["tokens"]
 	if !hasEmail || !hasDisplayName || !hasTokens {
-		err = fmt.Errorf("SSO validation failed, missing required fields")
+		err = fmt.Errorf("validation failed, response missing required SSO fields")
 		return luser, err
 	}
 	email, ok := result["email"].(string)
 	if !ok || email == "" {
-		err = fmt.Errorf("Invalid SSO data received for %v", result["email"])
+		err = fmt.Errorf("validation failed, invalid response")
 		return luser, err
 	}
-	return User{Identity{Scheme: s.Name(), Id: email}}, nil
+	return affinity.Principal{Scheme: s.Name(), Id: email}, nil
 }

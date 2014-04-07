@@ -18,7 +18,7 @@ import (
 	"github.com/juju/affinity/examples"
 	"github.com/juju/affinity/providers/usso"
 	"github.com/juju/affinity/rbac"
-	rbac_mongo "github.com/juju/affinity/storage/mongo"
+	rbac_mongo "github.com/juju/affinity/rbac/storage/mongo"
 )
 
 const dataDir = "./"
@@ -29,7 +29,7 @@ var certFile *string = flag.String("cert", "cert.pem", "SSL certificate")
 var keyFile *string = flag.String("key", "key.pem", "SSL private key")
 
 type DemoHandler struct {
-	Store  rbac.Store
+	Rbac   *rbac.Admin
 	Scheme affinity.HandshakeScheme
 }
 
@@ -50,12 +50,12 @@ func main() {
 
 	session, err := mgo.Dial(*mgoAddr)
 	if err != nil {
-		die(fmt.Errorf("Failed to connect to store:%v", err))
+		die(fmt.Errorf("failed to connect to store: %q", err))
 	}
 
-	rbacStore, err := rbac_mongo.NewMongoStore(session, *mgoDbName, "","")
+	rbacStore, err := rbac_mongo.NewFactStore(session, session.DB(*mgoDbName), "demo_rbac")
 	if err != nil {
-		die(fmt.Errorf("Failed to find store:%v", err))
+		die(fmt.Errorf("failed to find store: %q", err))
 	}
 
 	sessionStore := sessions.NewCookieStore(
@@ -64,8 +64,8 @@ func main() {
 	)
 
 	demoContext := DemoHandler{
-		Store:  rbacStore,
-		Scheme: usso.NewOpenIdWeb("openid-demo", "", sessionStore),
+		Rbac:   rbac.NewAdmin(rbacStore, rbac.NewRoleMap()),
+		Scheme: usso.NewOpenIdWeb("openid-demo", "localhost:8443", sessionStore),
 	}
 
 	r := mux.NewRouter()
@@ -88,7 +88,7 @@ func (_ RedirectToTls) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		host = req.Host
 	}
-	http.Redirect(w, req, fmt.Sprintf("https://%v:8443%v", host, req.URL.Path), 301)
+	http.Redirect(w, req, fmt.Sprintf("https://%s:8443%s", host, req.URL.Path), 301)
 }
 
 func BadRequest(w http.ResponseWriter, err error) {

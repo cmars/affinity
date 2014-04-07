@@ -24,20 +24,20 @@ import (
 	"path"
 	"strings"
 
-	. "github.com/juju/affinity"
+	"github.com/juju/affinity"
 )
 
 const AuthDirName = "auth"
 const AuthTokenSuffix = ".token"
 
-var ErrAuthNotFound error = fmt.Errorf("Authorization not found")
+var ErrAuthNotFound error = fmt.Errorf("authorization not found")
 
 // AuthTokenStore stores authentication tokens by their scheme and endpoint.
 type AuthStore interface {
 	// Get reads and decodes the authentication token from storage.
-	Get(schemeId string, endpoint string) (*TokenInfo, error)
+	Get(scheme string, endpoint string) (*affinity.TokenInfo, error)
 	// Set stores an authentication token.
-	Set(token *TokenInfo, endpoint string) error
+	Set(token *affinity.TokenInfo, endpoint string) error
 }
 
 // FileAuthStore stores an affinity client's authentication credential
@@ -58,14 +58,14 @@ func NewFileAuthStore(baseDir string) (*FileAuthStore, error) {
 	return &FileAuthStore{baseDir, authDir}, nil
 }
 
-func (s *FileAuthStore) tokenDirFile(schemeId string, endpoint string) (string, string) {
-	schemeDir := path.Join(s.authDir, schemeId)
+func (s *FileAuthStore) tokenDirFile(scheme string, endpoint string) (string, string) {
+	schemeDir := path.Join(s.authDir, scheme)
 	return schemeDir, endpoint + AuthTokenSuffix
 }
 
 // Get retrieves a token for a scheme and endpoint.
-func (s *FileAuthStore) Get(schemeId string, endpoint string) (*TokenInfo, error) {
-	schemeDir, tokenFileName := s.tokenDirFile(schemeId, endpoint)
+func (s *FileAuthStore) Get(scheme string, endpoint string) (*affinity.TokenInfo, error) {
+	schemeDir, tokenFileName := s.tokenDirFile(scheme, endpoint)
 	tokenPath := path.Join(schemeDir, tokenFileName)
 	if fi, err := os.Stat(tokenPath); err != nil {
 		if os.IsNotExist(err) {
@@ -73,7 +73,7 @@ func (s *FileAuthStore) Get(schemeId string, endpoint string) (*TokenInfo, error
 		}
 		return nil, err
 	} else if fi.Mode().IsDir() || !fi.Mode().IsRegular() {
-		return nil, fmt.Errorf("Cannot retrieve %s token for endpoint %s: not a regular file", schemeId, endpoint)
+		return nil, fmt.Errorf("cannot retrieve %q token for endpoint %q: not a regular file", scheme, endpoint)
 	}
 	authContents, err := ioutil.ReadFile(tokenPath)
 	if err != nil {
@@ -83,19 +83,19 @@ func (s *FileAuthStore) Get(schemeId string, endpoint string) (*TokenInfo, error
 		return nil, err
 	}
 	auth := strings.TrimSpace(string(authContents))
-	token, err := ParseTokenInfo(auth)
+	token, err := affinity.ParseTokenInfo(auth)
 	if err != nil {
 		return nil, err
 	}
-	if token.SchemeId != schemeId {
-		return nil, fmt.Errorf("Token contents [%s] do not match requested scheme %s", token.SchemeId, schemeId)
+	if token.Scheme != scheme {
+		return nil, fmt.Errorf(`token scheme %q does not match requested scheme %q`, token.Scheme, scheme)
 	}
 	return token, nil
 }
 
 // Set stores a token.
-func (s *FileAuthStore) Set(token *TokenInfo, endpoint string) error {
-	tokenDir, tokenName := s.tokenDirFile(token.SchemeId, endpoint)
+func (s *FileAuthStore) Set(token *affinity.TokenInfo, endpoint string) error {
+	tokenDir, tokenName := s.tokenDirFile(token.Scheme, endpoint)
 	err := os.MkdirAll(tokenDir, 0700)
 	if err != nil {
 		return err
