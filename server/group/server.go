@@ -18,7 +18,6 @@
 package server
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -51,7 +50,7 @@ func (s *GroupServer) HandleGroup(w http.ResponseWriter, r *http.Request) {
 func (s *GroupServer) handleGroup(r *http.Request) *server.Response {
 	log.Println(r)
 	vars := mux.Vars(r)
-	groupId := vars["group"]
+	g := affinity.Principal{Scheme: group.SchemeName, Id: vars["group"]}
 
 	authUser, err := s.Authenticate(r)
 	if err != nil {
@@ -65,19 +64,14 @@ func (s *GroupServer) handleGroup(r *http.Request) *server.Response {
 
 	switch r.Method {
 	case "PUT":
-		err = groupSrv.AddGroup(groupId)
+		err = groupSrv.AddGroup(g)
 		return &server.Response{Error: err}
 	case "GET":
-		g, err := groupSrv.Group(groupId)
-		if err != nil {
-			return &server.Response{Error: err}
-		}
-		out, err := json.Marshal(g)
 		resp := &server.Response{Error: err}
-		resp.Write(out)
+		resp.Write([]byte(g.String()))
 		return resp
 	case "DELETE":
-		err = groupSrv.RemoveGroup(groupId)
+		err = groupSrv.RemoveGroup(g)
 		return &server.Response{Error: err}
 	}
 	return &server.Response{
@@ -94,7 +88,7 @@ func (s *GroupServer) HandleUser(w http.ResponseWriter, r *http.Request) {
 func (s *GroupServer) handleUser(r *http.Request) *server.Response {
 	log.Println(r)
 	vars := mux.Vars(r)
-	groupId := vars["group"]
+	g := affinity.Principal{Scheme: group.SchemeName, Id: vars["group"]}
 	userString := vars["user"]
 	user, err := affinity.ParsePrincipal(userString)
 	if err != nil {
@@ -113,7 +107,7 @@ func (s *GroupServer) handleUser(r *http.Request) *server.Response {
 
 	switch r.Method {
 	case "GET":
-		has, err := groupSrv.CheckMember(groupId, user)
+		has, err := groupSrv.CheckMember(g, user)
 		if err != nil {
 			return &server.Response{Error: err}
 		}
@@ -122,10 +116,10 @@ func (s *GroupServer) handleUser(r *http.Request) *server.Response {
 		}
 		return &server.Response{}
 	case "PUT":
-		err = groupSrv.AddMember(groupId, user)
+		err = groupSrv.AddMember(g, user)
 		return &server.Response{Error: err}
 	case "DELETE":
-		err = groupSrv.RemoveMember(groupId, user)
+		err = groupSrv.RemoveMember(g, user)
 		return &server.Response{Error: err}
 	}
 	return &server.Response{

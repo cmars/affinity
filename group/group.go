@@ -18,12 +18,20 @@
 package group
 
 import (
+	"fmt"
+
+	"github.com/juju/affinity"
 	"github.com/juju/affinity/rbac"
 )
 
-// AffinityGroupsUri defines a namespace for roles affecting the entire
-// group database -- such as adding and removing groups.
-const AffinityGroupsUri = "affinity-group-service:"
+const (
+	// AffinityGroupsUri defines a namespace for roles affecting the entire
+	// group database -- such as adding and removing groups.
+	AffinityGroupsUri = "affinity-group-service:"
+
+	// Principal scheme identifier for affinity-managed groups.
+	SchemeName = "affinity-group"
+)
 
 // AddGroupPerm is permission on this service to add a group.
 type AddGroupPerm struct{}
@@ -134,6 +142,13 @@ func (_ groupResource) Capabilities() rbac.PermissionMap { return ownerCapabilit
 func (gr groupResource) URI() string { return string(gr) }
 
 func (gr groupResource) Parent() rbac.Resource { return ServiceResource }
+
+func newGroupResource(group affinity.Principal) (groupResource, error) {
+	if group.Scheme != SchemeName {
+		return "", fmt.Errorf("group scheme not supported: %q", group.Scheme)
+	}
+	return groupResource(group.String()), nil
+}
 
 type serviceResource struct{}
 

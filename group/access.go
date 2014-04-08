@@ -42,10 +42,14 @@ func NewGroupService(store rbac.FactStore, asUser affinity.Principal) *GroupServ
 }
 
 // canGroup tests if a user or group has a specific permission on a group.
-func (s *GroupService) canGroup(principal affinity.Principal, perm rbac.Permission, groupId string) error {
-	if ok, err := s.Can(principal, perm, groupResource(groupId)); !ok {
+func (s *GroupService) canGroup(principal affinity.Principal, perm rbac.Permission, group affinity.Principal) error {
+	groupRc, err := newGroupResource(group)
+	if err != nil {
+		return err
+	}
+	if ok, err := s.Can(principal, perm, groupRc); !ok {
 		return fmt.Errorf("%q has no permission to %q on group %q", principal.String(),
-			perm.Perm(), groupId)
+			perm.Perm(), group.String())
 	} else {
 		return err
 	}
@@ -61,9 +65,9 @@ func (s *GroupService) canService(principal affinity.Principal, perm rbac.Permis
 }
 
 // CheckMember tests if a principal is immediately or transitively a member of a group.
-func (s *GroupService) CheckMember(groupId string, member affinity.Principal) (bool, error) {
+func (s *GroupService) CheckMember(group affinity.Principal, member affinity.Principal) (bool, error) {
 	var err error
-	if err = s.canGroup(s.AsUser, CheckMemberPerm{}, groupId); err != nil {
+	if err = s.canGroup(s.AsUser, CheckMemberPerm{}, group); err != nil {
 		return false, err
 	}
 	principal := member.String()
@@ -71,8 +75,8 @@ func (s *GroupService) CheckMember(groupId string, member affinity.Principal) (b
 	if err != nil {
 		return false, nil
 	}
-	for _, group := range groups {
-		if group == groupId {
+	for _, groupId := range groups {
+		if group.String() == groupId {
 			return true, nil
 		}
 	}
@@ -81,30 +85,37 @@ func (s *GroupService) CheckMember(groupId string, member affinity.Principal) (b
 
 // AddGroup defines a new group. The current user is granted the Owner role over the group.
 // The current user must be allowed to add groups on this service.
-func (s *GroupService) AddGroup(groupId string) error {
+func (s *GroupService) AddGroup(group affinity.Principal) error {
 	var err error
 	if err = s.canService(s.AsUser, AddGroupPerm{}); err != nil {
 		return err
 	}
-	err = s.facts.AddGroup(groupId)
+	err = s.facts.AddGroup(group.String())
 	if err != nil {
 		return err
 	}
-	return s.Grant(s.AsUser, OwnerRole, groupResource(groupId))
+	groupRc, err := newGroupResource(group)
+	if err != nil {
+		return err
+	}
+	return s.Grant(s.AsUser, OwnerRole, groupRc)
 }
 
 // RemoveGroup removes an existing group. The current user must own the group.
-func (s *GroupService) RemoveGroup(groupId string) error {
-	var err error
-	if err = s.canGroup(s.AsUser, RemoveGroupPerm{}, groupId); err != nil {
+func (s *GroupService) RemoveGroup(group affinity.Principal) error {
+	groupRc, err := newGroupResource(group)
+	if err != nil {
+		return err
+	}
+	if err = s.canGroup(s.AsUser, RemoveGroupPerm{}, group); err != nil {
 		return err
 	}
 	// Remove all role grants on the group as a resource
-	if err = s.RemoveAll(groupResource(groupId)); err != nil {
+	if err = s.RemoveAll(groupRc); err != nil {
 		return err
 	}
 	// Remove the group
-	err = s.facts.RemoveGroup(groupId)
+	err = s.facts.RemoveGroup(group.String())
 	if err != nil {
 		return err
 	}
@@ -112,13 +123,13 @@ func (s *GroupService) RemoveGroup(groupId string) error {
 }
 
 // AddMember adds a new member to an existing group.
-func (s *GroupService) AddMember(groupId string, principal affinity.Principal) error {
+func (s *GroupService) AddMember(group, member affinity.Principal) error {
 	var err error
-	if err = s.canGroup(s.AsUser, AddMemberPerm{}, groupId); err != nil {
+	if err = s.canGroup(s.AsUser, AddMemberPerm{}, group); err != nil {
 		return err
 	}
 	// Add the group membership. Should error if duplicate.
-	err = s.facts.AddMember(groupId, principal.String())
+	err = s.facts.AddMember(group.String(), member.String())
 	if err != nil {
 		return err
 	}
@@ -126,13 +137,13 @@ func (s *GroupService) AddMember(groupId string, principal affinity.Principal) e
 }
 
 // RemoveMember removes an existing member from a group.
-func (s *GroupService) RemoveMember(groupId string, principal affinity.Principal) error {
+func (s *GroupService) RemoveMember(group, member affinity.Principal) error {
 	var err error
-	if err = s.canGroup(s.AsUser, RemoveMemberPerm{}, groupId); err != nil {
+	if err = s.canGroup(s.AsUser, RemoveMemberPerm{}, group); err != nil {
 		return err
 	}
 	// Remove the group membership if exists.
-	err = s.facts.RemoveMember(groupId, principal.String())
+	err = s.facts.RemoveMember(group.String(), member.String())
 	if err != nil {
 		return err
 	}
@@ -141,22 +152,28 @@ func (s *GroupService) RemoveMember(groupId string, principal affinity.Principal
 
 // GrantOnGroup grants a principal (user or group) role permissions on a group.
 // The current user must own the group.
-func (s *GroupService) GrantOnGroup(principal affinity.Principal, role rbac.Role, groupId string) error {
-	var err error
-	if err = s.canGroup(s.AsUser, GrantOnGroupPerm{}, groupId); err != nil {
+func (s *GroupService) GrantOnGroup(principal affinity.Principal, role rbac.Role, group affinity.Principal) error {
+	groupRc, err := newGroupResource(group)
+	if err != nil {
 		return err
 	}
-	return s.Grant(principal, role, groupResource(groupId))
+	if err = s.canGroup(s.AsUser, GrantOnGroupPerm{}, group); err != nil {
+		return err
+	}
+	return s.Grant(principal, role, groupRc)
 }
 
 // RevokeOnGroup revokes a principal (user or group) role permissions from a group.
 // The current user must own the group.
-func (s *GroupService) RevokeOnGroup(principal affinity.Principal, role rbac.Role, groupId string) error {
-	var err error
-	if err = s.canGroup(s.AsUser, RevokeOnGroupPerm{}, groupId); err != nil {
+func (s *GroupService) RevokeOnGroup(principal affinity.Principal, role rbac.Role, group affinity.Principal) error {
+	groupRc, err := newGroupResource(group)
+	if err != nil {
 		return err
 	}
-	return s.Revoke(principal, role, groupResource(groupId))
+	if err = s.canGroup(s.AsUser, RevokeOnGroupPerm{}, group); err != nil {
+		return err
+	}
+	return s.Revoke(principal, role, groupRc)
 }
 
 func (s *GroupService) GrantOnService(principal affinity.Principal, role rbac.Role) error {
@@ -173,8 +190,4 @@ func (s *GroupService) RevokeOnService(principal affinity.Principal, role rbac.R
 		return err
 	}
 	return s.Revoke(principal, role, serviceResource{})
-}
-
-func (s *GroupService) Group(groupId string) (affinity.Principal, error) {
-	panic("TODO")
 }
